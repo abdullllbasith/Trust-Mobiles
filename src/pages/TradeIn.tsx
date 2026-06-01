@@ -17,7 +17,7 @@ export default function TradeIn() {
             <span className="bg-white/10 text-white text-xs font-semibold uppercase tracking-widest px-4 py-2 rounded-full inline-flex items-center gap-2 mb-8 backdrop-blur-md">
               <RefreshCw className="w-3.5 h-3.5" /> Fast & Easy Returns
             </span>
-            <h1 className="text-5xl md:text-8xl font-display font-medium tracking-tight mb-8">
+            <h1 className="!text-white text-5xl md:text-8xl font-display font-medium tracking-tight mb-8">
               Upgrade to
               <br />
               the future.

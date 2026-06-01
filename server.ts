@@ -5,7 +5,6 @@ import path from 'path';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import 'dotenv/config';
 import OpenAI from 'openai';
 
@@ -214,7 +213,11 @@ export const connectDB = async () => {
 
     // If no external MongoDB URI is provided, start a local in-memory one
     if (!mongoUri) {
+      if (process.env.VERCEL) {
+        throw new Error("CRITICAL: MONGODB_URI environment variable is missing in Vercel. Please add it to your Vercel project settings.");
+      }
       console.log('No MONGODB_URI provided, starting in-memory MongoDB...');
+      const { MongoMemoryServer } = await import('mongodb-memory-server');
       const mongoServer = await MongoMemoryServer.create();
       mongoUri = mongoServer.getUri();
     }
@@ -229,8 +232,12 @@ export const connectDB = async () => {
     isConnected = true;
     await seedData();
     console.log('Database seeded');
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to connect to MongoDB:', error);
+    if (process.env.VERCEL && !process.env.MONGODB_URI) {
+      // Rethrow to allow serverless function to explicitly fail instead of hanging
+      throw error;
+    }
   }
 };
 
@@ -238,8 +245,13 @@ export const connectDB = async () => {
 
 // Serverless DB connection middleware
 app.use('/api', async (req, res, next) => {
-  await connectDB();
-  next();
+  try {
+    await connectDB();
+    next();
+  } catch (error: any) {
+    console.error("API Middleware DB Error:", error);
+    res.status(500).json({ error: 'Internal Server Error: Database connection failed. Please check environment variables.' });
+  }
 });
 
 // Auth
