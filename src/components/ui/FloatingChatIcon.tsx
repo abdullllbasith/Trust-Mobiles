@@ -139,7 +139,7 @@ export function FloatingChatIcon() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="Ask me anything..."
-                  className="flex-1 bg-[#F5F7F6] border border-transparent rounded-full px-5 py-3 text-sm focus:outline-none focus:border-black/10 focus:bg-white transition-colors"
+                  className="flex-1 bg-[#F5F7F6] border border-transparent rounded-full px-5 py-3 text-base focus:outline-none focus:border-black/10 focus:bg-white transition-colors"
                 />
                 <button 
                   onClick={handleSend}
