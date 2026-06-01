@@ -310,7 +310,7 @@ export default function Home() {
             className="bg-[#121212] text-white rounded-[2rem] p-10 md:p-14 relative overflow-hidden group shadow-xl"
           >
             <div className="relative z-10">
-              <h3 className="text-3xl font-display font-medium mb-3">
+              <h3 className="text-3xl font-display font-medium mb-3 text-white">
                 Upgrade Program
               </h3>
               <p className="text-white/60 mb-8 font-medium text-lg leading-relaxed max-w-sm">
@@ -585,7 +585,7 @@ export default function Home() {
                <img src={ad.image} alt={ad.title} className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" />
                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent"></div>
                <div className="absolute bottom-0 left-0 p-10 md:p-14 text-white w-full">
-                 <h2 className="text-3xl md:text-5xl font-display font-semibold mb-4 drop-shadow-sm">{ad.title}</h2>
+                 <h2 className="text-3xl md:text-5xl font-display font-semibold mb-4 drop-shadow-sm text-white">{ad.title}</h2>
                  {ad.link && <span className="inline-flex items-center gap-2 font-semibold border-b border-white/40 pb-1 hover:border-white transition-colors">Explore <ArrowRight className="w-4 h-4"/></span>}
                </div>
             </a>
