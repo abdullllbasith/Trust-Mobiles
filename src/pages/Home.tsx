@@ -73,12 +73,12 @@ export default function Home() {
       .then((data) => setAds(data.filter((ad: any) => ad.active)))
       .catch(console.error);
 
-    fetch("https://api.rss2json.com/v1/api.json?rss_url=https://techcrunch.com/feed/")
+    fetch("https://api.rss2json.com/v1/api.json?rss_url=https://www.wired.com/feed/rss")
       .then((res) => res.json())
       .then((data) => {
         if (data && data.items) {
           const articles = data.items.slice(0, 3).map((item: any) => {
-             let imgUrl = item.thumbnail;
+             let imgUrl = item.thumbnail || item.enclosure?.thumbnail || item.enclosure?.link;
              if (!imgUrl && item.description) {
                 const imgMatch = item.description.match(/<img[^>]+src="([^">]+)"/);
                 if (imgMatch) imgUrl = imgMatch[1];
@@ -535,9 +535,9 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { name: "Sarah J.", role: "Tech Enthusiast", text: "The fastest delivery for my new Pixel 8 Pro. Highly recommended! The unboxing experience was just flawless.", img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" },
-              { name: "Michael T.", role: "Photographer", text: "Traded in my old iPhone seamlessly. Best prices and genuine products. I won't buy tech anywhere else now.", img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" },
-              { name: "Elena R.", role: "Designer", text: "Their customer support is unmatched. Helped me pick the perfect MacBook for my design workflow.", img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150" }
+              { name: "Kavindi D.", role: "Tech Enthusiast", text: "The fastest delivery for my new Pixel 8 Pro. Highly recommended! The unboxing experience was just flawless.", img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" },
+              { name: "Kasun P.", role: "Photographer", text: "Traded in my old iPhone seamlessly. Best prices and genuine products. I won't buy tech anywhere else now.", img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" },
+              { name: "Nethmi W.", role: "Designer", text: "Their customer support is unmatched. Helped me pick the perfect MacBook for my design workflow.", img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150" }
             ].map((review, i) => (
               <div key={i} className="glass-panel p-8 rounded-[2rem] bg-white/60 hover:bg-white transition-colors duration-300 shadow-sm border border-black/5 hover:shadow-xl group">
                 <div className="flex gap-1 mb-6 text-[#121212]">
@@ -567,9 +567,9 @@ export default function Home() {
                 Latest news, reviews, and guides from the tech world.
               </p>
             </div>
-            <Link to="#" className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#2FA84F] transition-colors whitespace-nowrap">
+            <a href="https://www.wired.com/category/gear/" target="_blank" rel="noopener noreferrer" className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#2FA84F] transition-colors whitespace-nowrap">
               Read All Articles <ArrowRight className="w-4 h-4" />
-            </Link>
+            </a>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {(news.length > 0 ? news : [
