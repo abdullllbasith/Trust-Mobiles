@@ -51,6 +51,109 @@ import { useWishlistStore } from "@/store/wishlistStore";
 import { toast } from "sonner";
 import Phone3D from "@/components/Phone3D";
 
+const TECH_NEWS_RSS =
+  "https://www.wired.com/feed/category/gear/latest/rss";
+
+const TECH_KEYWORDS = [
+  "phone",
+  "smartphone",
+  "iphone",
+  "android",
+  "samsung",
+  "apple",
+  "google",
+  "pixel",
+  "laptop",
+  "macbook",
+  "tablet",
+  "gadget",
+  "gear",
+  "tech",
+  "ai",
+  "software",
+  "hardware",
+  "review",
+  "gaming",
+  "wireless",
+  "earbuds",
+  "headphone",
+  "camera",
+  "watch",
+  "keyboard",
+  "monitor",
+  "router",
+  "wifi",
+  "charger",
+  "console",
+  "computer",
+  "device",
+];
+
+const EXCLUDE_KEYWORDS = [
+  "health",
+  "covid",
+  "medicine",
+  "fda",
+  "romance",
+  "scam",
+  "quilt",
+  "sleeping bag",
+  "father's day",
+  "backpacking",
+];
+
+function isTechArticle(item: { title?: string; categories?: string[]; description?: string }) {
+  const haystack = [
+    item.title ?? "",
+    ...(item.categories ?? []),
+    item.description ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (EXCLUDE_KEYWORDS.some((keyword) => haystack.includes(keyword))) {
+    return false;
+  }
+
+  return TECH_KEYWORDS.some((keyword) => haystack.includes(keyword));
+}
+
+function formatNewsCategory(categories?: string[]) {
+  const primary = categories?.[0] ?? "Tech";
+  const normalized = primary.toLowerCase();
+
+  if (normalized.includes("review")) return "Review";
+  if (normalized.includes("buying guide") || normalized.includes("how to")) return "Guide";
+  if (normalized.includes("news") || normalized.includes("events")) return "News";
+  if (normalized.includes("gear")) return "Tech";
+
+  return "Tech";
+}
+
+const FALLBACK_TECH_NEWS = [
+  {
+    title: "Apple Event 2024: Everything announced in 5 minutes",
+    category: "News",
+    date: "Oct 24, 2024",
+    img: "https://images.unsplash.com/photo-1512054502232-10a0a035d672?auto=format&fit=crop&q=80&w=600",
+    link: "https://www.wired.com/category/gear/",
+  },
+  {
+    title: "Samsung Galaxy S24 Ultra Camera Test: Is it the best?",
+    category: "Review",
+    date: "Oct 22, 2024",
+    img: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&q=80&w=600",
+    link: "https://www.wired.com/category/gear/",
+  },
+  {
+    title: "How to maximize your smartphone's battery life",
+    category: "Guide",
+    date: "Oct 18, 2024",
+    img: "https://images.unsplash.com/photo-1601524909162-ae8725290836?auto=format&fit=crop&q=80&w=600",
+    link: "https://www.wired.com/category/gear/",
+  },
+];
+
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [ads, setAds] = useState<any[]>([]);
@@ -73,11 +176,14 @@ export default function Home() {
       .then((data) => setAds(data.filter((ad: any) => ad.active)))
       .catch(console.error);
 
-    fetch("https://api.rss2json.com/v1/api.json?rss_url=https://www.wired.com/feed/rss")
+    fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(TECH_NEWS_RSS)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data && data.items) {
-          const articles = data.items.slice(0, 3).map((item: any) => {
+          const articles = data.items
+            .filter(isTechArticle)
+            .slice(0, 3)
+            .map((item: any) => {
              let imgUrl = item.thumbnail || item.enclosure?.thumbnail || item.enclosure?.link;
              if (!imgUrl && item.description) {
                 const imgMatch = item.description.match(/<img[^>]+src="([^">]+)"/);
@@ -85,7 +191,7 @@ export default function Home() {
              }
              return {
                title: item.title,
-               category: item.categories?.[0] || "News",
+               category: formatNewsCategory(item.categories),
                date: new Date(item.pubDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
                img: imgUrl || "https://images.unsplash.com/photo-1512054502232-10a0a035d672?auto=format&fit=crop&q=80&w=600",
                link: item.link
@@ -572,11 +678,7 @@ export default function Home() {
             </a>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(news.length > 0 ? news : [
-              { title: "Apple Event 2024: Everything announced in 5 minutes", category: "News", date: "Oct 24, 2024", img: "https://images.unsplash.com/photo-1512054502232-10a0a035d672?auto=format&fit=crop&q=80&w=600" },
-              { title: "Samsung Galaxy S24 Ultra Camera Test: Is it the best?", category: "Review", date: "Oct 22, 2024", img: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&q=80&w=600" },
-              { title: "How to maximize your smartphone's battery life", category: "Guide", date: "Oct 18, 2024", img: "https://images.unsplash.com/photo-1601524909162-ae8725290836?auto=format&fit=crop&q=80&w=600" }
-            ]).map((post, i) => (
+            {(news.length > 0 ? news : FALLBACK_TECH_NEWS).map((post, i) => (
               <a href={post.link || "#"} target="_blank" rel="noopener noreferrer" key={i} className="group rounded-[2rem] overflow-hidden bg-white shadow-sm hover:shadow-xl transition-all duration-300 border border-black/5 flex flex-col">
                 <div className="h-48 overflow-hidden relative">
                   <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-[#111] tracking-widest uppercase">
