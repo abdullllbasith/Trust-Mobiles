@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server-mock.ts",
-    "dev:mongo": "tsx server.ts",
-    "start": "tsx server-mock.ts",
+    "dev": "tsx server.ts",
+    "dev:mock": "tsx server-mock.ts",
+    "start": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",

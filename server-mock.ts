@@ -22,6 +22,8 @@ let users: any[] = [];
 let products: any[] = [];
 let orders: any[] = [];
 let ads: any[] = [];
+let categories: any[] = [];
+let brands: any[] = [];
 
 // Helper to generate IDs
 const generateId = () => Math.random().toString(36).substring(2, 15);
@@ -55,6 +57,25 @@ const seedData = async () => {
         images: ["https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?auto=format&fit=crop&q=80&w=800"],
         specs: { type: "Earbuds", anc: "Yes" }, createdAt: new Date()
       }
+    );
+  }
+
+  if (categories.length === 0) {
+    categories.push(
+      { id: generateId(), name: "Phones", createdAt: new Date() },
+      { id: generateId(), name: "Tablets", createdAt: new Date() },
+      { id: generateId(), name: "Accessories", createdAt: new Date() },
+      { id: generateId(), name: "Audio", createdAt: new Date() }
+    );
+  }
+
+  if (brands.length === 0) {
+    brands.push(
+      { id: generateId(), name: "Apple", categories: ["Phones", "Tablets", "Accessories", "Audio"], createdAt: new Date() },
+      { id: generateId(), name: "Samsung", categories: ["Phones", "Tablets", "Accessories"], createdAt: new Date() },
+      { id: generateId(), name: "Google", categories: ["Phones", "Accessories"], createdAt: new Date() },
+      { id: generateId(), name: "JBL", categories: ["Audio"], createdAt: new Date() },
+      { id: generateId(), name: "Sony", categories: ["Phones", "Audio"], createdAt: new Date() }
     );
   }
 };
@@ -302,6 +323,79 @@ app.delete('/api/ads/:id', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Categories
+app.get('/api/categories', async (req, res) => {
+  try {
+    const sorted = [...categories].sort((a, b) => a.name.localeCompare(b.name));
+    res.json(sorted);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+app.post('/api/categories', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const newCat = { id: generateId(), ...req.body, createdAt: new Date() };
+    categories.push(newCat);
+    res.status(201).json(newCat);
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to create category' });
+  }
+});
+
+app.delete('/api/categories/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const index = categories.findIndex(c => c.id === req.params.id);
+    if (index === -1) return res.status(404).json({ error: 'Category not found' });
+    categories.splice(index, 1);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+// Brands
+app.get('/api/brands', async (req, res) => {
+  try {
+    const sorted = [...brands].sort((a, b) => a.name.localeCompare(b.name));
+    res.json(sorted);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch brands' });
+  }
+});
+
+app.post('/api/brands', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const newBrand = { id: generateId(), ...req.body, createdAt: new Date() };
+    brands.push(newBrand);
+    res.status(201).json(newBrand);
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to create brand' });
+  }
+});
+
+app.put('/api/brands/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const index = brands.findIndex(b => b.id === req.params.id);
+    if (index === -1) return res.status(404).json({ error: 'Brand not found' });
+    brands[index] = { ...brands[index], ...req.body };
+    res.json(brands[index]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update brand' });
+  }
+});
+
+app.delete('/api/brands/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const index = brands.findIndex(b => b.id === req.params.id);
+    if (index === -1) return res.status(404).json({ error: 'Brand not found' });
+    brands.splice(index, 1);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete brand' });
+  }
+});
+
 // Chat AI
 app.post('/api/chat', async (req, res) => {
   if (!openai) {
@@ -313,16 +407,102 @@ app.post('/api/chat', async (req, res) => {
     
     const systemPrompt = {
       role: 'system',
-      content: 'You are a helpful, expert AI shopping assistant for Matrix Mobiles. You help users find the best tech devices, compare specifications, and provide recommendations based on their needs. Keep your answers concise, friendly, and formatted neatly.'
+      content: 'You are a helpful, expert AI shopping assistant for Matrix Mobiles. You help users find the best tech devices, compare specifications, and provide recommendations based on their needs. Keep your answers concise, friendly, and formatted neatly. STRICT RULE: You MUST ONLY answer questions related to Matrix Mobiles, mobile phones, tech accessories, store policies, or shopping. If a user asks a question completely unrelated to these topics (such as writing code, math, history, general knowledge, etc.), you must politely refuse to answer and remind them that you are strictly a Matrix Mobiles shopping assistant. IMPORTANT: If the user asks about a specific product, phone, or device, you MUST use the `check_product_availability` function to query the database. Do NOT guess if a product is available.'
     };
 
-    const completion = await openai.chat.completions.create({
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'check_product_availability',
+          description: 'Search the store database to check if a specific product or brand is available in stock.',
+          parameters: {
+            type: 'object',
+            properties: {
+              searchQuery: {
+                type: 'string',
+                description: 'The name or brand of the product the user is asking for (e.g. "iPhone 15", "Samsung", "AirPods").'
+              }
+            },
+            required: ['searchQuery']
+          }
+        }
+      }
+    ];
+
+    let currentMessages = [systemPrompt, ...messages];
+    let actionPayload = null;
+
+    const completion1 = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
-      messages: [systemPrompt, ...messages],
+      // @ts-ignore
+      messages: currentMessages,
+      // @ts-ignore
+      tools: tools,
+      tool_choice: 'auto',
       max_tokens: 500,
     });
 
-    res.json({ message: completion.choices[0].message });
+    const responseMessage = completion1.choices[0].message;
+
+    if (responseMessage.tool_calls) {
+      currentMessages.push(responseMessage as any);
+
+      for (const toolCall of responseMessage.tool_calls) {
+        if (toolCall.type === 'function') {
+          const args = JSON.parse(toolCall.function.arguments);
+          const query = args.searchQuery.toLowerCase();
+
+          // Search the in-memory array
+          const foundProducts = products.filter(p => 
+            p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query)
+          ).slice(0, 3);
+
+          if (foundProducts.length > 0) {
+            const matchedProduct = foundProducts[0];
+            actionPayload = { type: 'navigate', url: `/product/${matchedProduct.id}` };
+            
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              name: toolCall.function.name,
+              content: JSON.stringify({
+                status: 'found',
+                message: `Product found: ${matchedProduct.name} by ${matchedProduct.brand}. Price: LKR ${matchedProduct.price}. Tell the user we have it in stock and that you are automatically navigating them to the product page right now.`
+              })
+            });
+          } else {
+            const availableProducts = products.filter(p => p.stock > 0).slice(0, 3);
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              name: toolCall.function.name,
+              content: JSON.stringify({
+                status: 'not_found',
+                message: `Product '${args.searchQuery}' not found in database. Here are some available alternatives to suggest to the user: ${availableProducts.map(p => p.name).join(', ')}.`
+              })
+            });
+          }
+        }
+      }
+
+      const completion2 = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        // @ts-ignore
+        messages: currentMessages,
+        max_tokens: 500,
+      });
+
+      return res.json({ 
+        message: completion2.choices[0].message,
+        action: actionPayload
+      });
+    }
+
+    res.json({ 
+      message: responseMessage,
+      action: actionPayload
+    });
   } catch (error: any) {
     console.error('OpenAI Error:', error);
     res.status(500).json({ error: 'Failed to communicate with AI' });

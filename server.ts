@@ -93,11 +93,40 @@ adSchema.set('toJSON', {
   }
 });
 
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true }
+}, { timestamps: true });
+
+categorySchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret: any) => {
+    ret.id = ret._id.toString();
+    delete ret._id;
+    delete ret.__v;
+  }
+});
+
+const brandSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  categories: [String]
+}, { timestamps: true });
+
+brandSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret: any) => {
+    ret.id = ret._id.toString();
+    delete ret._id;
+    delete ret.__v;
+  }
+});
+
 
 const User = mongoose.model('User', userSchema);
 const Product = mongoose.model('Product', productSchema);
 const Order = mongoose.model('Order', orderSchema);
 const Advertisement = mongoose.model('Advertisement', adSchema);
+const Category = mongoose.model('Category', categorySchema);
+const Brand = mongoose.model('Brand', brandSchema);
 
 // Seed Database
 const seedData = async () => {
@@ -132,15 +161,36 @@ const seedData = async () => {
       }
     ]);
   }
+
+  const categoryCount = await Category.countDocuments();
+  if (categoryCount === 0) {
+    await Category.insertMany([
+      { name: "Phones" },
+      { name: "Tablets" },
+      { name: "Accessories" },
+      { name: "Audio" }
+    ]);
+  }
+
+  const brandCount = await Brand.countDocuments();
+  if (brandCount === 0) {
+    await Brand.insertMany([
+      { name: "Apple", categories: ["Phones", "Tablets", "Accessories", "Audio"] },
+      { name: "Samsung", categories: ["Phones", "Tablets", "Accessories"] },
+      { name: "Google", categories: ["Phones", "Accessories"] },
+      { name: "JBL", categories: ["Audio"] },
+      { name: "Sony", categories: ["Phones", "Audio"] }
+    ]);
+  }
 };
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  
+
   if (token == null) return res.sendStatus(401);
-  
+
   jwt.verify(token, SECRET_KEY, (err: any, user: any) => {
     if (err) return res.sendStatus(403);
     req.user = user;
@@ -155,17 +205,52 @@ const isAdmin = (req: any, res: any, next: any) => {
   next();
 };
 
+// Database connection singleton
+let isConnected = false;
+export const connectDB = async () => {
+  if (isConnected) return;
+  try {
+    let mongoUri = process.env.MONGODB_URI;
+
+    // If no external MongoDB URI is provided, start a local in-memory one
+    if (!mongoUri) {
+      console.log('No MONGODB_URI provided, starting in-memory MongoDB...');
+      const mongoServer = await MongoMemoryServer.create();
+      mongoUri = mongoServer.getUri();
+    }
+
+    const conn = await mongoose.connect(mongoUri);
+    console.log(`\n========================================`);
+    console.log(`✅ MongoDB Successfully Connected!`);
+    console.log(`🚀 Host: ${conn.connection.host}`);
+    console.log(`📁 Database: ${conn.connection.name}`);
+    console.log(`========================================\n`);
+
+    isConnected = true;
+    await seedData();
+    console.log('Database seeded');
+  } catch (error) {
+    console.error('Failed to connect to MongoDB:', error);
+  }
+};
+
 // --- API ROUTES ---
+
+// Serverless DB connection middleware
+app.use('/api', async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
 // Auth
 app.post('/api/auth/register', async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'All fields are required' });
-  
+
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: 'Email already exists' });
-    
+
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ name, email, password: hash, role: 'user' });
     res.status(201).json({ id: user._id, name: user.name, email: user.email, role: user.role });
@@ -176,11 +261,11 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  
+
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
-    
+
     const result = await bcrypt.compare(password, user.password as string);
     if (result) {
       const token = jwt.sign({ id: user._id, email: user.email, role: user.role, name: user.name }, SECRET_KEY, { expiresIn: '24h' });
@@ -215,7 +300,7 @@ app.get('/api/products/:id', async (req, res) => {
 
 app.post('/api/products', authenticateToken, isAdmin, async (req, res) => {
   const { name, brand, category, price, discount, stock, images, specs } = req.body;
-  
+
   try {
     const newProd = await Product.create({
       name, brand, category, price: parseFloat(price), discount: parseFloat(discount || 0), stock: parseInt(stock || 0), images, specs
@@ -253,7 +338,7 @@ app.put('/api/products/:id', authenticateToken, isAdmin, async (req, res) => {
 app.post('/api/orders', authenticateToken, async (req: any, res) => {
   const { items, totalPrice, address } = req.body;
   const userId = req.user.id;
-  
+
   try {
     const newOrder = await Order.create({
       userId, items, totalPrice, paymentStatus: 'pending', orderStatus: 'processing', address
@@ -266,7 +351,7 @@ app.post('/api/orders', authenticateToken, async (req: any, res) => {
 
 app.get('/api/orders', authenticateToken, async (req: any, res) => {
   const userId = req.user.id;
-  
+
   try {
     let query = {};
     if (req.user.role !== 'admin') {
@@ -364,6 +449,74 @@ app.delete('/api/ads/:id', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Categories
+app.get('/api/categories', async (req, res) => {
+  try {
+    const categories = await Category.find().sort({ name: 1 });
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+app.post('/api/categories', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const category = await Category.create(req.body);
+    res.status(201).json(category);
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to create category' });
+  }
+});
+
+app.delete('/api/categories/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const deleted = await Category.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Category not found' });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+// Brands
+app.get('/api/brands', async (req, res) => {
+  try {
+    const brands = await Brand.find().sort({ name: 1 });
+    res.json(brands);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch brands' });
+  }
+});
+
+app.post('/api/brands', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const brand = await Brand.create(req.body);
+    res.status(201).json(brand);
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to create brand' });
+  }
+});
+
+app.put('/api/brands/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const brand = await Brand.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    res.json(brand);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update brand' });
+  }
+});
+
+app.delete('/api/brands/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const deleted = await Brand.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Brand not found' });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete brand' });
+  }
+});
+
 // Chat AI
 app.post('/api/chat', async (req, res) => {
   if (!openai) {
@@ -372,19 +525,110 @@ app.post('/api/chat', async (req, res) => {
 
   try {
     const { messages } = req.body;
-    
+
     const systemPrompt = {
       role: 'system',
-      content: 'You are a helpful, expert AI shopping assistant for Matrix Mobiles. You help users find the best tech devices, compare specifications, and provide recommendations based on their needs. Keep your answers concise, friendly, and formatted neatly.'
+      content: 'You are a helpful, expert AI shopping assistant for Matrix Mobiles. You help users find the best tech devices, compare specifications, and provide recommendations based on their needs. Keep your answers concise, friendly, and formatted neatly. STRICT RULE: You MUST ONLY answer questions related to Matrix Mobiles, mobile phones, tech accessories, store policies, or shopping. If a user asks a question completely unrelated to these topics (such as writing code, math, history, general knowledge, etc.), you must politely refuse to answer and remind them that you are strictly a Matrix Mobiles shopping assistant. IMPORTANT: If the user asks about a specific product, phone, or device, you MUST use the `check_product_availability` function to query the database. Do NOT guess if a product is available.'
     };
 
-    const completion = await openai.chat.completions.create({
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'check_product_availability',
+          description: 'Search the store database to check if a specific product or brand is available in stock.',
+          parameters: {
+            type: 'object',
+            properties: {
+              searchQuery: {
+                type: 'string',
+                description: 'The name or brand of the product the user is asking for (e.g. "iPhone 15", "Samsung", "AirPods").'
+              }
+            },
+            required: ['searchQuery']
+          }
+        }
+      }
+    ];
+
+    let currentMessages = [systemPrompt, ...messages];
+    let actionPayload = null;
+
+    const completion1 = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
-      messages: [systemPrompt, ...messages],
+      // @ts-ignore
+      messages: currentMessages,
+      // @ts-ignore
+      tools: tools,
+      tool_choice: 'auto',
       max_tokens: 500,
     });
 
-    res.json({ message: completion.choices[0].message });
+    const responseMessage = completion1.choices[0].message;
+
+    // Check if the model wanted to call a function
+    if (responseMessage.tool_calls) {
+      currentMessages.push(responseMessage as any);
+
+      for (const toolCall of responseMessage.tool_calls) {
+        if (toolCall.type === 'function') {
+          const args = JSON.parse(toolCall.function.arguments);
+          const query = args.searchQuery;
+
+          // Search the database
+          const foundProducts = await Product.find({
+            $or: [
+              { name: { $regex: query, $options: 'i' } },
+              { brand: { $regex: query, $options: 'i' } }
+            ]
+          }).limit(3);
+
+          if (foundProducts.length > 0) {
+            const matchedProduct = foundProducts[0];
+            actionPayload = { type: 'navigate', url: `/product/${matchedProduct._id}` };
+
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              name: toolCall.function.name,
+              content: JSON.stringify({
+                status: 'found',
+                message: `Product found: ${matchedProduct.name} by ${matchedProduct.brand}. Price: LKR ${matchedProduct.price}. Tell the user we have it in stock and that you are automatically navigating them to the product page right now.`
+              })
+            });
+          } else {
+            const availableProducts = await Product.find({ stock: { $gt: 0 } }).limit(3);
+            currentMessages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              name: toolCall.function.name,
+              content: JSON.stringify({
+                status: 'not_found',
+                message: `Product '${query}' not found in database. Here are some available alternatives to suggest to the user: ${availableProducts.map(p => p.name).join(', ')}.`
+              })
+            });
+          }
+        }
+      }
+
+      // Call OpenAI again to let it summarize the tool results
+      const completion2 = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        // @ts-ignore
+        messages: currentMessages,
+        max_tokens: 500,
+      });
+
+      return res.json({
+        message: completion2.choices[0].message,
+        action: actionPayload
+      });
+    }
+
+    res.json({
+      message: responseMessage,
+      action: actionPayload
+    });
   } catch (error: any) {
     console.error('OpenAI Error:', error);
     res.status(500).json({ error: 'Failed to communicate with AI' });
@@ -393,24 +637,7 @@ app.post('/api/chat', async (req, res) => {
 
 // Start Server
 async function startServer() {
-  try {
-    let mongoUri = process.env.MONGODB_URI;
-    
-    // If no external MongoDB URI is provided, start a local in-memory one
-    if (!mongoUri) {
-      console.log('No MONGODB_URI provided, starting in-memory MongoDB...');
-      const mongoServer = await MongoMemoryServer.create();
-      mongoUri = mongoServer.getUri();
-    }
-    
-    await mongoose.connect(mongoUri);
-    console.log('Connected to MongoDB');
-    
-    await seedData();
-    console.log('Database seeded');
-  } catch (error) {
-    console.error('Failed to connect to MongoDB:', error);
-  }
+  await connectDB();
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -432,4 +659,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Only start the server if we are NOT running in a Vercel Serverless environment
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;

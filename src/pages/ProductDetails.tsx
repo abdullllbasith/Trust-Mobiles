@@ -45,7 +45,7 @@ export default function ProductDetails() {
       })
       .then((res) => res.json())
       .then((relatedData) => {
-        setRelatedProducts(relatedData.filter((p: Product) => p.id !== id).slice(0, 4));
+        setRelatedProducts(relatedData.filter((p: Product) => String(p.id) !== String(id)).slice(0, 4));
       })
       .catch(() => {
         toast.error("Product not found");
@@ -114,10 +114,10 @@ export default function ProductDetails() {
 
   return (
     <div className="flex-1 bg-[var(--bg-color)] min-h-screen">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6 md:py-12">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-4 md:py-6">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm md:text-base font-semibold text-gray-500 hover:text-[#111] transition-colors mb-6 md:mb-10 w-fit group"
+          className="flex items-center gap-2 text-sm md:text-base font-semibold text-gray-500 hover:text-[#111] transition-colors mb-4 md:mb-6 w-fit group"
         >
           <div className="w-8 h-8 rounded-full bg-white border border-black/5 flex items-center justify-center shadow-sm group-hover:bg-[#111] group-hover:text-white transition-all">
             <ArrowLeft className="w-4 h-4" />
@@ -125,12 +125,12 @@ export default function ProductDetails() {
           Back
         </button>
 
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-12 bg-white rounded-[2rem] lg:rounded-[3rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-black/[0.03] p-4 sm:p-6 lg:p-16 overflow-hidden relative">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-12 bg-white rounded-[2rem] lg:rounded-[3rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-black/[0.03] p-4 sm:p-6 lg:p-10 overflow-hidden relative">
           {/* Images Gallery */}
           <div className="w-full lg:w-1/2 flex flex-col gap-4 lg:gap-6 relative z-10">
-            <div className="aspect-square bg-[#F5F7F6] rounded-[1.5rem] lg:rounded-[2.5rem] p-2 sm:p-10 flex items-center justify-center relative overflow-hidden group">
+            <div className="aspect-square bg-[#F5F7F6] rounded-[1.5rem] lg:rounded-[2.5rem] relative overflow-hidden group">
               {product.discount > 0 && (
-                <div className="absolute top-4 left-4 lg:top-8 lg:left-8 z-10 bg-[#111] text-white text-[10px] lg:text-xs font-semibold tracking-wider px-3 lg:px-4 py-1.5 lg:py-2 rounded-full shadow-sm">
+                <div className="absolute top-4 left-4 lg:top-8 lg:left-8 z-20 bg-[#111] text-white text-[10px] lg:text-xs font-semibold tracking-wider px-3 lg:px-4 py-1.5 lg:py-2 rounded-full shadow-sm border border-white/10">
                   {product.discount}% OFF
                 </div>
               )}
@@ -141,7 +141,7 @@ export default function ProductDetails() {
                 transition={{ duration: 0.4 }}
                 src={images[activeImage]}
                 alt={product.name}
-                className="w-full h-full object-contain mix-blend-multiply drop-shadow-xl"
+                className="w-full h-full object-cover mix-blend-multiply transition-transform duration-700 ease-out group-hover:scale-105"
               />
             </div>
             {images.length > 1 && (
@@ -319,22 +319,20 @@ export default function ProductDetails() {
             <h2 className="text-2xl md:text-3xl font-display font-semibold text-[#111] mb-8">
               You might also like
             </h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 hide-scrollbar snap-x">
               {relatedProducts.map((relatedProduct) => {
-                const rpImages =
-                  typeof relatedProduct.images === "string"
-                    ? JSON.parse(relatedProduct.images)
-                    : relatedProduct.images;
+                const rpImages = typeof relatedProduct.images === "string" ? JSON.parse(relatedProduct.images) : relatedProduct.images;
                 const isRpWishlisted = isInWishlist(relatedProduct.id);
+                const currentPrice = relatedProduct.price * (1 - relatedProduct.discount / 100);
 
                 return (
                   <motion.div
                     key={relatedProduct.id}
-                    className="group bg-white rounded-[2rem] p-4 lg:p-6 shadow-sm border border-black/[0.03] hover:shadow-xl hover:border-black/5 transition-all duration-300 relative flex flex-col h-full"
+                    className="min-w-[220px] md:min-w-[280px] w-[220px] md:w-[280px] snap-start bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-black/[0.03] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] hover:border-black/5 transition-all duration-300 h-[360px] md:h-[460px] flex flex-col group relative overflow-hidden flex-shrink-0"
                     whileHover={{ y: -5 }}
                   >
                     {/* Action Icons */}
-                    <div className="absolute top-4 right-4 md:top-7 md:right-7 flex flex-col gap-2 md:gap-3 z-20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity lg:translate-x-2 lg:group-hover:translate-x-0">
+                    <div className="absolute top-3 right-3 md:top-4 md:right-4 flex flex-col gap-2 z-20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity lg:translate-x-2 lg:group-hover:translate-x-0">
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -346,82 +344,69 @@ export default function ProductDetails() {
                             toast.success(`Added ${relatedProduct.name} to wishlist`);
                           }
                         }}
-                        className="bg-white/90 backdrop-blur-md p-1.5 md:p-2.5 rounded-full shadow-lg hover:bg-white text-gray-600 hover:text-red-500 transition-all"
+                        className="bg-white/90 backdrop-blur-md p-2 md:p-2.5 rounded-full shadow-lg hover:bg-white text-gray-600 hover:text-red-500 transition-all"
                       >
-                        <Heart
-                          className="w-3 h-3 md:w-4 md:h-4"
-                          fill={isRpWishlisted ? "currentColor" : "none"}
-                          color={isRpWishlisted ? "red" : "currentColor"}
-                        />
+                        <Heart className="w-4 h-4 md:w-4 md:h-4" fill={isRpWishlisted ? "currentColor" : "none"} color={isRpWishlisted ? "red" : "currentColor"} />
                       </button>
-                      <Link
-                        to={`/product/${relatedProduct.id}`}
-                        onClick={() => window.scrollTo(0, 0)}
-                        className="bg-white/90 backdrop-blur-md p-1.5 md:p-2.5 rounded-full shadow-lg hover:bg-white text-gray-600 hover:text-[#121212] transition-all hidden md:block"
-                      >
+                      <Link to={`/product/${relatedProduct.id}`} onClick={() => window.scrollTo(0, 0)} className="bg-white/90 backdrop-blur-md p-2 md:p-2.5 rounded-full shadow-lg hover:bg-white text-gray-600 hover:text-[#111] transition-all hidden md:block">
                         <Eye className="w-4 h-4" />
                       </Link>
                     </div>
 
-                    <Link
-                      to={`/product/${relatedProduct.id}`}
-                      onClick={() => window.scrollTo(0, 0)}
-                      className="flex-1 flex flex-col h-full"
-                    >
-                      <div className="w-full h-32 md:h-52 bg-[#F5F7F6] rounded-xl md:rounded-2xl mb-3 md:mb-5 flex items-center justify-center p-3 md:p-6 relative overflow-hidden group-hover:bg-[#F0F2F1] transition-colors">
-                        {relatedProduct.discount > 0 && (
-                          <span className="absolute top-2 left-2 md:top-4 md:left-4 bg-[#111] text-white text-[10px] md:text-xs font-semibold tracking-wider px-2 py-1 md:px-3 md:py-1.5 rounded-full z-10 shadow-sm border border-white/10">
-                            {relatedProduct.discount}% OFF
-                          </span>
-                        )}
+                    {/* Discount Tag */}
+                    {relatedProduct.discount > 0 && (
+                      <span className="absolute top-3 left-3 md:top-4 md:left-4 bg-[#111] text-white text-[10px] md:text-xs font-semibold tracking-wider px-2 py-1 md:px-3 md:py-1.5 rounded-full z-20 shadow-sm border border-white/10">
+                        {relatedProduct.discount}% OFF
+                      </span>
+                    )}
+
+                    <Link to={`/product/${relatedProduct.id}`} onClick={() => window.scrollTo(0, 0)} className="flex-1 flex flex-col h-full">
+                      {/* Edge-to-edge Image Container */}
+                      <div className="w-full h-44 md:h-64 bg-[#F5F7F6] relative overflow-hidden group-hover:bg-[#F0F2F1] transition-colors">
                         <img
                           src={rpImages[0]}
                           alt={relatedProduct.name}
-                          className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 ease-out mix-blend-multiply"
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out mix-blend-multiply"
                         />
                       </div>
 
-                      <div className="text-[9px] md:text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
-                        {relatedProduct.brand}
-                      </div>
-                      <h4 className="font-display font-semibold text-sm md:text-lg mt-0.5 md:mt-1 line-clamp-1 text-[#111]">
-                        {relatedProduct.name}
-                      </h4>
-
-                      <div className="flex items-center gap-0.5 md:gap-1 mt-1 md:mt-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 fill-[#121212] text-[#121212]"
-                          />
-                        ))}
-                      </div>
-
-                      <div className="flex items-end justify-between mt-auto pt-3 md:pt-4 border-t border-black/5">
-                        <div className="flex flex-col items-start gap-1">
-                          <div className="text-[#121212] flex items-end gap-2 text-sm md:text-lg font-display font-bold">
-                            LKR{" "}
-                            {(
-                              relatedProduct.price *
-                              (1 - relatedProduct.discount / 100)
-                            ).toFixed(2)}
-                          </div>
-                          {relatedProduct.discount > 0 && (
-                            <div className="text-[10px] md:text-xs text-gray-400 font-medium line-through">
-                              LKR {relatedProduct.price}
-                            </div>
-                          )}
+                      {/* Content Area */}
+                      <div className="p-4 md:p-6 flex-1 flex flex-col">
+                        <div className="text-[9px] md:text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                          {relatedProduct.brand}
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            addItem(relatedProduct);
-                            toast.success(`${relatedProduct.name} added to cart`);
-                          }}
-                          className="bg-[#111] text-white p-2.5 md:p-3.5 rounded-full hover:bg-[#2FA84F] hover:-translate-y-1 transition-all shadow-md"
-                        >
-                          <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
-                        </button>
+                        <h4 className="font-display font-semibold text-sm md:text-lg mt-0.5 md:mt-1 line-clamp-1 text-[#111]">
+                          {relatedProduct.name}
+                        </h4>
+
+                        <div className="flex items-center gap-0.5 md:gap-1 mt-1 md:mt-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star key={star} className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 fill-[#121212] text-[#121212]" />
+                          ))}
+                        </div>
+
+                        <div className="flex items-end justify-between mt-auto pt-4 md:pt-5 border-t border-black/5">
+                          <div>
+                            <div className="text-[#121212] text-base md:text-xl font-display font-bold">
+                              LKR {currentPrice.toFixed(2)}
+                            </div>
+                            {relatedProduct.discount > 0 && (
+                              <div className="text-[10px] md:text-xs text-gray-400 font-medium line-through">
+                                LKR {relatedProduct.price}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              addItem(relatedProduct);
+                              toast.success(`${relatedProduct.name} added to cart`);
+                            }}
+                            className="bg-[#111] text-white p-2.5 md:p-3.5 rounded-full hover:bg-[#2FA84F] hover:-translate-y-1 transition-all shadow-md"
+                          >
+                            <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
+                          </button>
+                        </div>
                       </div>
                     </Link>
                   </motion.div>

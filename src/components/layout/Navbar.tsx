@@ -224,15 +224,15 @@ export function Navbar() {
                   </p>
                 </div>
                 <DropdownMenuItem
-                  asChild
                   className="rounded-xl cursor-pointer p-3 focus:bg-black/5"
+                  onClick={() => navigate("/dashboard")}
                 >
-                  <Link to="/dashboard" className="flex items-center">
+                  <div className="flex items-center">
                     <User className="mr-3 h-4 w-4" />
                     <span className="font-semibold text-[#111]">
                       My Account
                     </span>
-                  </Link>
+                  </div>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="my-2 bg-black/5" />
                 <DropdownMenuItem

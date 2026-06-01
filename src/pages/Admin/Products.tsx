@@ -28,8 +28,9 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Plus, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function AdminProducts({ products, loading, fetchData }: any) {
+export default function AdminProducts({ products, categories = [], brands = [], loading, fetchData }: any) {
   const { token } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -42,8 +43,8 @@ export default function AdminProducts({ products, loading, fetchData }: any) {
     discount: "0",
     stock: "0",
     images: "",
-    specs: "",
   });
+  const [specsList, setSpecsList] = useState<{ key: string; value: string }[]>([{ key: "", value: "" }]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -75,8 +76,12 @@ export default function AdminProducts({ products, loading, fetchData }: any) {
         images: Array.isArray(product.images)
           ? product.images.join(", ")
           : product.images,
-        specs: JSON.stringify(product.specs || {}),
       });
+      const existingSpecs = product.specs || {};
+      const specsArray = Object.keys(existingSpecs).length > 0 
+        ? Object.entries(existingSpecs).map(([key, value]) => ({ key, value: String(value) }))
+        : [{ key: "", value: "" }];
+      setSpecsList(specsArray);
     } else {
       setEditingId(null);
       setFormData({
@@ -87,8 +92,8 @@ export default function AdminProducts({ products, loading, fetchData }: any) {
         discount: "0",
         stock: "0",
         images: "",
-        specs: "",
       });
+      setSpecsList([{ key: "", value: "" }]);
     }
     setIsModalOpen(true);
   };
@@ -96,10 +101,17 @@ export default function AdminProducts({ products, loading, fetchData }: any) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const specsObj = specsList.reduce((acc, curr) => {
+        if (curr.key.trim() && curr.value.trim()) {
+          acc[curr.key.trim()] = curr.value.trim();
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
       const body = {
         ...formData,
         images: formData.images.split(",").map((s) => s.trim()),
-        specs: formData.specs ? JSON.parse(formData.specs) : {},
+        specs: specsObj,
       };
 
       const url = editingId ? `/api/products/${editingId}` : `/api/products`;
@@ -247,28 +259,51 @@ export default function AdminProducts({ products, loading, fetchData }: any) {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Brand</Label>
-                <Input
-                  value={formData.brand}
-                  onChange={(e) =>
-                    setFormData({ ...formData, brand: e.target.value })
-                  }
-                  required
-                />
-              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Input
+                <Select
                   value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
+                  onValueChange={(val) => setFormData({ ...formData, category: val, brand: "" })}
                   required
-                />
+                >
+                  <SelectTrigger className="rounded-[8px]">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-[8px]">
+                    {categories.map((cat: any) => (
+                      <SelectItem key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Brand</Label>
+                <Select
+                  value={formData.brand}
+                  onValueChange={(val) => setFormData({ ...formData, brand: val })}
+                  required
+                  disabled={!formData.category}
+                >
+                  <SelectTrigger className="rounded-[8px]">
+                    <SelectValue placeholder={formData.category ? "Select Brand" : "Select Category First"} />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-[8px]">
+                    {brands
+                      .filter((b: any) => b.categories?.includes(formData.category))
+                      .map((brand: any) => (
+                        <SelectItem key={brand.id} value={brand.name}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Stock</Label>
                 <Input
@@ -338,15 +373,54 @@ export default function AdminProducts({ products, loading, fetchData }: any) {
                 </div>
               )}
             </div>
-            <div className="space-y-2">
-              <Label>Specs (JSON format)</Label>
-              <Input
-                placeholder='{"color": "black", "ram": "8GB"}'
-                value={formData.specs}
-                onChange={(e) =>
-                  setFormData({ ...formData, specs: e.target.value })
-                }
-              />
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label>Specifications</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setSpecsList([...specsList, { key: "", value: "" }])}
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Add Spec
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                {specsList.map((spec, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      placeholder="Name (e.g. Color)"
+                      value={spec.key}
+                      onChange={(e) => {
+                        const newList = [...specsList];
+                        newList[index].key = e.target.value;
+                        setSpecsList(newList);
+                      }}
+                    />
+                    <Input
+                      placeholder="Value (e.g. Black)"
+                      value={spec.value}
+                      onChange={(e) => {
+                        const newList = [...specsList];
+                        newList[index].value = e.target.value;
+                        setSpecsList(newList);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500 shrink-0"
+                      onClick={() => {
+                        const newList = specsList.filter((_, i) => i !== index);
+                        setSpecsList(newList.length ? newList : [{ key: "", value: "" }]);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button

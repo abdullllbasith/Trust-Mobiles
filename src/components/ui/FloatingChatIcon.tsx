@@ -1,8 +1,10 @@
 import { MessageCircle, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 export function FloatingChatIcon() {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([
     { role: 'assistant', content: "Hello! I'm your AI shopping assistant. How can I help you today?" }
@@ -40,6 +42,14 @@ export function FloatingChatIcon() {
       if (data.message) {
         setMessages(prev => [...prev, data.message]);
       }
+      
+      if (data.action && data.action.type === 'navigate') {
+        setTimeout(() => {
+          navigate(data.action.url);
+          setIsOpen(false);
+        }, 1500);
+      }
+
     } catch (error) {
       console.error(error);
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I am having trouble connecting to the AI server right now.' }]);

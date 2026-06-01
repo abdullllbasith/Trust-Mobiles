@@ -7,29 +7,39 @@ import AdminProducts from "./Products";
 import AdminOrders from "./Orders";
 import AdminUsers from "./Users";
 import AdminAdvertisements from "./Advertisements";
+import AdminCategories from "./Categories";
+import AdminBrands from "./Brands";
 
 export default function AdminDashboard() {
   const { token } = useAuthStore();
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [prodRes, ordRes, usrRes] = await Promise.all([
+      const [prodRes, ordRes, usrRes, catRes, brandRes] = await Promise.all([
         fetch(`/api/products`),
         fetch(`/api/orders`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/users`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/categories`),
+        fetch(`/api/brands`)
       ]);
       const prodData = await prodRes.json();
       const ordData = await ordRes.json();
       const usrData = await usrRes.json();
+      const catData = await catRes.json();
+      const brandData = await brandRes.json();
 
       setProducts(prodData);
       setOrders(Array.isArray(ordData) ? ordData : []);
       setUsers(Array.isArray(usrData) ? usrData : []);
+      setCategories(Array.isArray(catData) ? catData : []);
+      setBrands(Array.isArray(brandData) ? brandData : []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -47,12 +57,12 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="flex-1 bg-gray-50/50 min-h-screen py-12">
-      <div className="container mx-auto px-4 max-w-7xl">
-        <div className="mb-10 bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
+    <div className="flex-1 bg-gray-50/50 min-h-screen py-8 md:py-10">
+      <div className="w-full max-w-[1800px] mx-auto px-4 md:px-8 lg:px-12">
+        <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-display font-bold tracking-tight text-gray-900 mb-2">Admin Command Center</h1>
-            <p className="text-gray-500 text-lg">
+            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-gray-900 mb-2">Admin Command Center</h1>
+            <p className="text-gray-500 text-base md:text-lg">
               Manage your store, products, orders, and promotions seamlessly.
             </p>
           </div>
@@ -61,43 +71,55 @@ export default function AdminDashboard() {
         <Tabs
           defaultValue="overview"
           orientation="vertical"
-          className="flex flex-col md:flex-row gap-10"
+          className="flex flex-col lg:flex-row gap-8 lg:gap-12"
         >
-          <TabsList className="bg-white border border-gray-100 shadow-sm w-full md:w-72 flex flex-col justify-start p-3 h-fit gap-2 rounded-2xl">
+          <TabsList className="bg-transparent lg:bg-white lg:border lg:border-gray-100 lg:shadow-sm w-full lg:w-72 flex flex-row lg:flex-col justify-start p-0 lg:p-4 h-fit gap-2 lg:rounded-3xl overflow-x-auto hide-scrollbar shrink-0">
             <TabsTrigger
               value="overview"
-              className="w-full justify-start py-4 px-5 font-medium text-base rounded-xl data-[state=active]:bg-black data-[state=active]:text-white transition-all"
+              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
             >
               Overview
             </TabsTrigger>
             <TabsTrigger
               value="products"
-              className="w-full justify-start py-4 px-5 font-medium text-base rounded-xl data-[state=active]:bg-black data-[state=active]:text-white transition-all"
+              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
             >
               Inventory
             </TabsTrigger>
             <TabsTrigger
+              value="categories"
+              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
+            >
+              Categories
+            </TabsTrigger>
+            <TabsTrigger
+              value="brands"
+              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
+            >
+              Brands
+            </TabsTrigger>
+            <TabsTrigger
               value="orders"
-              className="w-full justify-start py-4 px-5 font-medium text-base rounded-xl data-[state=active]:bg-black data-[state=active]:text-white transition-all"
+              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
             >
               Orders
             </TabsTrigger>
             <TabsTrigger
               value="users"
-              className="w-full justify-start py-4 px-5 font-medium text-base rounded-xl data-[state=active]:bg-black data-[state=active]:text-white transition-all"
+              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
             >
               Customers (CRM)
             </TabsTrigger>
             <TabsTrigger
               value="ads"
-              className="w-full justify-start py-4 px-5 font-medium text-base rounded-xl data-[state=active]:bg-black data-[state=active]:text-white transition-all"
+              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
             >
-              Promotions & Flash Sales
+              Promotions
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-hidden">
-            <TabsContent value="overview">
+          <div className="flex-1 overflow-hidden min-w-0">
+            <TabsContent value="overview" className="mt-0">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <Card className="rounded-3xl shadow-sm border-gray-100 hover:shadow-md transition-shadow">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -156,15 +178,34 @@ export default function AdminDashboard() {
               </div>
             </TabsContent>
 
-            <TabsContent value="products">
+            <TabsContent value="products" className="mt-0">
               <AdminProducts
                 products={products}
+                categories={categories}
+                brands={brands}
                 loading={loading}
                 fetchData={fetchData}
               />
             </TabsContent>
 
-            <TabsContent value="orders">
+            <TabsContent value="categories" className="mt-0">
+              <AdminCategories
+                categories={categories}
+                loading={loading}
+                fetchData={fetchData}
+              />
+            </TabsContent>
+
+            <TabsContent value="brands" className="mt-0">
+              <AdminBrands
+                brands={brands}
+                categories={categories}
+                loading={loading}
+                fetchData={fetchData}
+              />
+            </TabsContent>
+
+            <TabsContent value="orders" className="mt-0">
               <AdminOrders
                 orders={orders}
                 loading={loading}
@@ -172,7 +213,7 @@ export default function AdminDashboard() {
               />
             </TabsContent>
 
-            <TabsContent value="users">
+            <TabsContent value="users" className="mt-0">
               <AdminUsers
                 users={users}
                 loading={loading}
@@ -180,7 +221,7 @@ export default function AdminDashboard() {
               />
             </TabsContent>
 
-            <TabsContent value="ads">
+            <TabsContent value="ads" className="mt-0">
               <AdminAdvertisements />
             </TabsContent>
           </div>
