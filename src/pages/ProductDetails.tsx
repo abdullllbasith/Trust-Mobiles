@@ -12,11 +12,14 @@ import {
   Heart,
   Eye,
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useCartStore, Product } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { normalizeImages } from "@/lib/productImages";
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -41,6 +44,7 @@ export default function ProductDetails() {
       })
       .then((data) => {
         setProduct(data);
+        setActiveImage(0);
         return fetch(`/api/products?category=${data.category}`);
       })
       .then((res) => res.json())
@@ -69,10 +73,7 @@ export default function ProductDetails() {
       } else {
         addWishlist({
           ...product,
-          images:
-            typeof product.images === "string"
-              ? JSON.parse(product.images)
-              : product.images,
+          images: normalizeImages(product.images),
           specs:
             typeof product.specs === "string"
               ? JSON.parse(product.specs)
@@ -101,16 +102,22 @@ export default function ProductDetails() {
 
   if (!product) return null;
 
-  const images =
-    typeof product.images === "string"
-      ? JSON.parse(product.images)
-      : product.images;
+  const images = normalizeImages(product.images);
   const specs =
     typeof product.specs === "string"
       ? JSON.parse(product.specs)
       : product.specs;
   const price = product.price * (1 - product.discount / 100);
   const isWishlisted = isInWishlist(product.id);
+  const hasMultipleImages = images.length > 1;
+
+  const showPrevImage = () => {
+    setActiveImage((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
+  const showNextImage = () => {
+    setActiveImage((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+  };
 
   return (
     <div className="flex-1 bg-[var(--bg-color)] min-h-screen">
@@ -134,17 +141,40 @@ export default function ProductDetails() {
                   {product.discount}% OFF
                 </div>
               )}
+              {hasMultipleImages && (
+                <>
+                  <button
+                    type="button"
+                    onClick={showPrevImage}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-white/90 backdrop-blur-md border border-black/5 shadow-lg flex items-center justify-center text-[#111] hover:bg-white transition-all opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="w-5 h-5 lg:w-6 lg:h-6" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={showNextImage}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-white/90 backdrop-blur-md border border-black/5 shadow-lg flex items-center justify-center text-[#111] hover:bg-white transition-all opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="w-5 h-5 lg:w-6 lg:h-6" />
+                  </button>
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/60 text-white text-xs font-medium px-3 py-1 rounded-full">
+                    {activeImage + 1} / {images.length}
+                  </div>
+                </>
+              )}
               <motion.img
                 key={activeImage}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.4 }}
-                src={images[activeImage]}
-                alt={product.name}
+                src={images[activeImage] || images[0]}
+                alt={`${product.name} - image ${activeImage + 1}`}
                 className="w-full h-full object-cover mix-blend-multiply transition-transform duration-700 ease-out group-hover:scale-105"
               />
             </div>
-            {images.length > 1 && (
+            {images.length > 0 && (
               <div className="flex gap-3 lg:gap-4 overflow-x-auto pb-2 lg:pb-4 hide-scrollbar">
                 {images.map((img: string, idx: number) => (
                   <button
@@ -154,7 +184,7 @@ export default function ProductDetails() {
                   >
                     <img
                       src={img}
-                      alt={`Thumb ${idx}`}
+                      alt={`Thumb ${idx + 1}`}
                       className="w-full h-full object-contain p-2 lg:p-4 mix-blend-multiply"
                     />
                   </button>
@@ -321,7 +351,7 @@ export default function ProductDetails() {
             </h2>
             <div className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 hide-scrollbar snap-x">
               {relatedProducts.map((relatedProduct) => {
-                const rpImages = typeof relatedProduct.images === "string" ? JSON.parse(relatedProduct.images) : relatedProduct.images;
+                const rpImages = normalizeImages(relatedProduct.images);
                 const isRpWishlisted = isInWishlist(relatedProduct.id);
                 const currentPrice = relatedProduct.price * (1 - relatedProduct.discount / 100);
 

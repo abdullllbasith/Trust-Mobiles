@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Logo } from "@/components/ui/Logo";
 import {
   ShoppingBag,
@@ -33,14 +33,30 @@ import {
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
   const { user, logout, isAdmin } = useAuthStore();
   const { totalItems } = useCartStore();
   const { items: wishlistItems } = useWishlistStore();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    setSearchTerm(searchParams.get("q") || "");
+  }, [searchParams]);
+
   const handleLogout = () => {
     logout();
     navigate("/");
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = searchTerm.trim();
+    if (!query) {
+      navigate("/shop");
+      return;
+    }
+    navigate(`/shop?q=${encodeURIComponent(query)}`);
   };
 
   return (
@@ -170,14 +186,22 @@ export function Navbar() {
       </div>
 
       <div className="flex items-center gap-4 md:gap-6">
-        <div className="hidden lg:flex items-center relative group">
+        <form onSubmit={handleSearch} className="hidden lg:flex items-center relative group">
           <input
             type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search devices..."
             className="bg-black/5 text-[#111] border border-transparent rounded-full py-2.5 pl-11 pr-5 text-sm w-64 focus:ring-1 focus:ring-black/20 focus:bg-white focus:shadow-sm outline-none transition-all focus:w-72 font-medium placeholder:text-gray-400"
           />
-          <Search className="w-4 h-4 text-gray-400 absolute left-4 group-focus-within:text-[#111] transition-colors" />
-        </div>
+          <button
+            type="submit"
+            className="absolute left-4 text-gray-400 group-focus-within:text-[#111] transition-colors"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        </form>
 
         <div className="flex items-center gap-1.5 md:gap-3">
           {/* Wishlist Icon */}
@@ -272,6 +296,28 @@ export function Navbar() {
                 Main site navigation links
               </SheetDescription>
               <div className="flex flex-col gap-6 mt-10">
+                <form
+                  onSubmit={(e) => {
+                    handleSearch(e);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="relative"
+                >
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search devices..."
+                    className="w-full bg-black/5 text-[#111] border border-transparent rounded-full py-3 pl-11 pr-5 text-base font-medium placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-black/20 focus:bg-white"
+                  />
+                  <button
+                    type="submit"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    aria-label="Search"
+                  >
+                    <Search className="w-4 h-4" />
+                  </button>
+                </form>
                 <Link
                   to="/"
                   onClick={() => setIsMobileMenuOpen(false)}

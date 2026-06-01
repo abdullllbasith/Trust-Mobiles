@@ -29,6 +29,8 @@ import { toast } from "sonner";
 import { Loader2, Plus, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ProductImageManager } from "@/components/admin/ProductImageManager";
+import { normalizeImages } from "@/lib/productImages";
 
 export default function AdminProducts({ products, categories = [], brands = [], loading, fetchData }: any) {
   const { token } = useAuthStore();
@@ -42,26 +44,9 @@ export default function AdminProducts({ products, categories = [], brands = [], 
     price: "",
     discount: "0",
     stock: "0",
-    images: "",
   });
+  const [imageList, setImageList] = useState<string[]>([]);
   const [specsList, setSpecsList] = useState<{ key: string; value: string }[]>([{ key: "", value: "" }]);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setFormData((prev) => ({
-          ...prev,
-          images: prev.images
-            ? `${prev.images}, ${base64String}`
-            : base64String,
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleOpen = (product?: any) => {
     if (product) {
@@ -73,10 +58,8 @@ export default function AdminProducts({ products, categories = [], brands = [], 
         price: product.price.toString(),
         discount: product.discount.toString(),
         stock: product.stock.toString(),
-        images: Array.isArray(product.images)
-          ? product.images.join(", ")
-          : product.images,
       });
+      setImageList(normalizeImages(product.images));
       const existingSpecs = product.specs || {};
       const specsArray = Object.keys(existingSpecs).length > 0 
         ? Object.entries(existingSpecs).map(([key, value]) => ({ key, value: String(value) }))
@@ -91,8 +74,8 @@ export default function AdminProducts({ products, categories = [], brands = [], 
         price: "",
         discount: "0",
         stock: "0",
-        images: "",
       });
+      setImageList([]);
       setSpecsList([{ key: "", value: "" }]);
     }
     setIsModalOpen(true);
@@ -110,7 +93,7 @@ export default function AdminProducts({ products, categories = [], brands = [], 
 
       const body = {
         ...formData,
-        images: formData.images.split(",").map((s) => s.trim()),
+        images: imageList,
         specs: specsObj,
       };
 
@@ -187,11 +170,7 @@ export default function AdminProducts({ products, categories = [], brands = [], 
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-secondary rounded flex items-center justify-center mix-blend-multiply p-1">
                           <img
-                            src={
-                              typeof product.images === "string"
-                                ? JSON.parse(product.images)[0]
-                                : product.images[0]
-                            }
+                            src={normalizeImages(product.images)[0]}
                             alt={product.name}
                             className="w-full h-full object-contain"
                           />
@@ -340,39 +319,7 @@ export default function AdminProducts({ products, categories = [], brands = [], 
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Upload Image</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-              />
-              {formData.images && (
-                <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
-                  {formData.images
-                    .split(",")
-                    .map(
-                      (img, idx) =>
-                        img.trim() && (
-                          <img
-                            key={idx}
-                            src={img.trim()}
-                            alt={`Preview ${idx}`}
-                            className="w-16 h-16 object-cover rounded border flex-shrink-0"
-                          />
-                        ),
-                    )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setFormData({ ...formData, images: "" })}
-                  >
-                    Clear Images
-                  </Button>
-                </div>
-              )}
-            </div>
+            <ProductImageManager images={imageList} onChange={setImageList} />
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <Label>Specifications</Label>

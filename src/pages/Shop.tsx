@@ -51,6 +51,11 @@ export default function Shop() {
   const brandParam = searchParams.get("brand");
   const priceMinParam = searchParams.get("priceMin");
   const priceMaxParam = searchParams.get("priceMax");
+  const qParam = searchParams.get("q") || "";
+
+  useEffect(() => {
+    setSearchQuery(qParam);
+  }, [qParam]);
 
   useEffect(() => {
     setLoading(true);
@@ -77,7 +82,8 @@ export default function Shop() {
       filtered = filtered.filter(
         (p: any) =>
           p.name.toLowerCase().includes(lowerQuery) ||
-          p.brand.toLowerCase().includes(lowerQuery),
+          p.brand.toLowerCase().includes(lowerQuery) ||
+          p.category.toLowerCase().includes(lowerQuery),
       );
     }
     if (priceMinParam) {
@@ -177,6 +183,18 @@ export default function Shop() {
   const clearFilters = () => {
     setSearchParams(new URLSearchParams());
     setSearchQuery("");
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    const newParams = new URLSearchParams(searchParams);
+    const trimmed = value.trim();
+    if (trimmed) {
+      newParams.set("q", trimmed);
+    } else {
+      newParams.delete("q");
+    }
+    setSearchParams(newParams);
   };
 
   const Sidebar = () => (
@@ -280,7 +298,7 @@ export default function Shop() {
                 type="text"
                 placeholder="Search devices..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full bg-white/70 backdrop-blur-md border border-white/50 rounded-full py-2.5 md:py-3.5 pl-10 md:pl-12 pr-4 md:pr-5 text-xs md:text-sm font-medium focus:border-black/20 focus:ring-2 focus:ring-black/5 outline-none transition-all shadow-sm"
               />
               <Search className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-500 absolute left-4 md:left-5 top-1/2 -translate-y-1/2" />
@@ -387,6 +405,15 @@ export default function Shop() {
                     p.delete("priceMax");
                     setSearchParams(p);
                   }}
+                />
+              </span>
+            )}
+            {searchQuery && (
+              <span className="bg-white border border-black/5 px-4 py-1.5 rounded-full text-xs font-semibold text-[#111] flex items-center gap-2 shadow-sm">
+                Search: {searchQuery}{" "}
+                <X
+                  className="w-3 h-3 cursor-pointer hover:text-red-500 transition-colors"
+                  onClick={() => handleSearchChange("")}
                 />
               </span>
             )}
