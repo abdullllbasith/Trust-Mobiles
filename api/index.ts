@@ -1,4 +1,4 @@
-import '../config/env';
-import app from '../server';
+import '../config/env.js';
+import app from '../server.js';
 
 export default app;

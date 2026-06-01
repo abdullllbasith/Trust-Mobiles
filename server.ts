@@ -1,4 +1,4 @@
-import './config/env';
+import './config/env.js';
 import express from 'express';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import OpenAI from 'openai';
-import { env, assertVercelEnv, getMissingVercelEnvVars } from './config/env';
+import { env, assertVercelEnv, getMissingVercelEnvVars } from './config/env.js';
 
 let openaiClient: OpenAI | null = null;
 
