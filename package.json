@@ -10,7 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "vercel:env": "node scripts/sync-vercel-env.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -59,6 +60,7 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
+    "vercel": "^54.6.1",
     "vite": "^6.2.3"
   }
 }

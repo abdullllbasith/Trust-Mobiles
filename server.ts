@@ -1,3 +1,4 @@
+import './config/env';
 import express from 'express';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
@@ -5,14 +6,22 @@ import path from 'path';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
-import 'dotenv/config';
 import OpenAI from 'openai';
+import { env, assertVercelEnv, getMissingVercelEnvVars } from './config/env';
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI(): OpenAI | null {
+  if (!env.OPENAI_API_KEY) return null;
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+  }
+  return openaiClient;
+}
 
 const app = express();
 const PORT = 3000;
-const SECRET_KEY = process.env.JWT_SECRET || 'matrix-mobiles-super-secret-key';
+const SECRET_KEY = env.JWT_SECRET;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -209,11 +218,15 @@ let isConnected = false;
 export const connectDB = async () => {
   if (isConnected) return;
   try {
-    let mongoUri = process.env.MONGODB_URI;
+    if (env.isVercel) {
+      assertVercelEnv();
+    }
+
+    let mongoUri = env.MONGODB_URI;
 
     // If no external MongoDB URI is provided, start a local in-memory one
     if (!mongoUri) {
-      if (process.env.VERCEL) {
+      if (env.isVercel) {
         throw new Error("CRITICAL: MONGODB_URI environment variable is missing in Vercel. Please add it to your Vercel project settings.");
       }
       console.log('No MONGODB_URI provided, starting in-memory MongoDB...');
@@ -234,12 +247,36 @@ export const connectDB = async () => {
     console.log('Database seeded');
   } catch (error: any) {
     console.error('Failed to connect to MongoDB:', error);
-    if (process.env.VERCEL && !process.env.MONGODB_URI) {
+    if (env.isVercel && !env.MONGODB_URI) {
       // Rethrow to allow serverless function to explicitly fail instead of hanging
       throw error;
     }
   }
 };
+
+// Health check (useful for verifying Vercel env + DB connectivity)
+app.get('/api/health', async (_req, res) => {
+  const missingEnv = getMissingVercelEnvVars();
+  let dbStatus: 'connected' | 'disconnected' | 'error' = 'disconnected';
+
+  try {
+    await connectDB();
+    dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  } catch {
+    dbStatus = 'error';
+  }
+
+  res.status(missingEnv.length > 0 || dbStatus === 'error' ? 503 : 200).json({
+    ok: missingEnv.length === 0 && dbStatus === 'connected',
+    environment: env.isVercel ? 'vercel' : 'local',
+    database: dbStatus,
+    missingEnv,
+    services: {
+      openai: !!env.OPENAI_API_KEY,
+    },
+    appUrl: env.APP_URL,
+  });
+});
 
 // --- API ROUTES ---
 
@@ -531,6 +568,7 @@ app.delete('/api/brands/:id', authenticateToken, isAdmin, async (req, res) => {
 
 // Chat AI
 app.post('/api/chat', async (req, res) => {
+  const openai = getOpenAI();
   if (!openai) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
   }
@@ -672,7 +710,7 @@ async function startServer() {
 }
 
 // Only start the server if we are NOT running in a Vercel Serverless environment
-if (!process.env.VERCEL) {
+if (!env.isVercel) {
   startServer();
 }
 
