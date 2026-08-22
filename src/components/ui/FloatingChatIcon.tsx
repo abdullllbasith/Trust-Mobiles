@@ -1,7 +1,58 @@
 import { MessageCircle, X } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function ChatMessageContent({ content }: { content: string }) {
+  const lines = content.replace(/\r\n/g, '\n').split('\n');
+
+  return (
+    <div className="space-y-1.5 text-left">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={i} className="h-1.5" aria-hidden />;
+        }
+
+        const numbered = trimmed.match(/^(\d+)\.\s+(.*)$/);
+        if (numbered) {
+          return (
+            <div key={i} className="pt-1 first:pt-0">
+              <span className="font-semibold text-[#111]">{numbered[1]}.</span>{' '}
+              {renderInlineMarkdown(numbered[2])}
+            </div>
+          );
+        }
+
+        const bullet = trimmed.match(/^[-•*]\s+(.*)$/);
+        if (bullet) {
+          return (
+            <div key={i} className="pl-3 text-[13px] leading-snug text-[#333]">
+              <span className="mr-1.5 text-[#888]">•</span>
+              {renderInlineMarkdown(bullet[1])}
+            </div>
+          );
+        }
+
+        return (
+          <div key={i} className="leading-relaxed">
+            {renderInlineMarkdown(line)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function FloatingChatIcon() {
   const navigate = useNavigate();
@@ -35,12 +86,17 @@ export function FloatingChatIcon() {
       });
 
       if (!response.ok) {
-        throw new Error('API Error');
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || 'API Error');
       }
 
       const data = await response.json();
       if (data.message) {
-        setMessages(prev => [...prev, data.message]);
+        const content =
+          typeof data.message.content === 'string'
+            ? data.message.content
+            : data.message.content?.toString?.() || 'No response from assistant.';
+        setMessages(prev => [...prev, { role: 'assistant', content }]);
       }
       
       if (data.action && data.action.type === 'navigate') {
@@ -50,9 +106,12 @@ export function FloatingChatIcon() {
         }, 1500);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I am having trouble connecting to the AI server right now.' }]);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: error?.message || 'Sorry, I am having trouble connecting to the AI server right now.',
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -109,10 +168,14 @@ export function FloatingChatIcon() {
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`px-5 py-3.5 rounded-2xl text-sm shadow-sm max-w-[85%] leading-relaxed ${
                       msg.role === 'user' 
-                        ? 'bg-[#111] text-white rounded-tr-sm' 
+                        ? 'bg-[#111] text-white rounded-tr-sm whitespace-pre-wrap' 
                         : 'bg-white text-[#111] rounded-tl-sm'
                     }`}>
-                      {msg.content}
+                      {msg.role === 'assistant' ? (
+                        <ChatMessageContent content={msg.content} />
+                      ) : (
+                        msg.content
+                      )}
                     </div>
                   </div>
                 ))}

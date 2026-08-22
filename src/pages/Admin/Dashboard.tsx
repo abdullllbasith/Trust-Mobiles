@@ -3,6 +3,8 @@ import { useAuthStore } from "@/store/authStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Box, Users, ShoppingCart, Activity } from "lucide-react";
+import { toast } from "sonner";
+import { apiFetchArray, ApiError } from "@/lib/api";
 import AdminProducts from "./Products";
 import AdminOrders from "./Orders";
 import AdminUsers from "./Users";
@@ -22,37 +24,47 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [prodRes, ordRes, usrRes, catRes, brandRes] = await Promise.all([
-        fetch(`/api/products`),
-        fetch(`/api/orders`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/users`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/categories`),
-        fetch(`/api/brands`)
-      ]);
-      const prodData = await prodRes.json();
-      const ordData = await ordRes.json();
-      const usrData = await usrRes.json();
-      const catData = await catRes.json();
-      const brandData = await brandRes.json();
+      // Load public catalog data independently from auth-protected data so one
+      // failed auth call cannot wipe categories/products/brands from the UI.
+      const [prodResult, catResult, brandResult, ordResult, usrResult] =
+        await Promise.allSettled([
+          apiFetchArray("/api/products", { fallbackError: "Failed to load products" }),
+          apiFetchArray("/api/categories", { fallbackError: "Failed to load categories" }),
+          apiFetchArray("/api/brands", { fallbackError: "Failed to load brands" }),
+          apiFetchArray("/api/orders", { auth: true, fallbackError: "Failed to load orders" }),
+          apiFetchArray("/api/users", { auth: true, fallbackError: "Failed to load customers" }),
+        ]);
 
-      setProducts(prodData);
-      setOrders(Array.isArray(ordData) ? ordData : []);
-      setUsers(Array.isArray(usrData) ? usrData : []);
-      setCategories(Array.isArray(catData) ? catData : []);
-      setBrands(Array.isArray(brandData) ? brandData : []);
+      const unwrap = <T,>(result: PromiseSettledResult<T[]>, label: string): T[] => {
+        if (result.status === "fulfilled") return result.value;
+        console.error(label, result.reason);
+        const message =
+          result.reason instanceof ApiError
+            ? result.reason.message
+            : `Failed to load ${label}`;
+        toast.error(message);
+        return [];
+      };
+
+      setProducts(unwrap(prodResult, "products"));
+      setCategories(unwrap(catResult, "categories"));
+      setBrands(unwrap(brandResult, "brands"));
+      setOrders(unwrap(ordResult, "orders"));
+      setUsers(unwrap(usrResult, "customers"));
     } catch (err) {
       console.error(err);
+      toast.error("Failed to load admin data. Please refresh or log in again.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    if (token) fetchData();
   }, [token]);
 
   const totalRevenue = orders.reduce(
-    (total, order) => total + order.totalPrice,
+    (total, order) => total + (Number(order.totalPrice) || 0),
     0,
   );
 

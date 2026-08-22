@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useAuthStore } from "@/store/authStore";
 import {
   Card,
   CardContent,
@@ -26,11 +25,17 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { apiFetch } from "@/lib/api";
 
-export default function AdminOrders({ orders, loading, fetchData }: any) {
-  const { token } = useAuthStore();
+function shortId(value: unknown) {
+  const str = String(value ?? "");
+  return str ? `#${str.slice(-6)}` : "—";
+}
+
+export default function AdminOrders({ orders = [], loading, fetchData }: any) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     orderStatus: "",
@@ -48,22 +53,22 @@ export default function AdminOrders({ orders, loading, fetchData }: any) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingOrder?.id) return;
+    setSaving(true);
     try {
-      const res = await fetch(`/api/orders/${editingOrder.id}`, {
+      await apiFetch(`/api/orders/${editingOrder.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        auth: true,
         body: JSON.stringify(formData),
+        fallbackError: "Failed to update order",
       });
-
-      if (!res.ok) throw new Error("Failed to update order");
       toast.success("Order updated");
       setIsModalOpen(false);
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Error updating order");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -95,13 +100,15 @@ export default function AdminOrders({ orders, loading, fetchData }: any) {
                 {orders.map((order: any) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">
-                      #{order.id.slice(-6)}
+                      {shortId(order.id)}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {order.userId.slice(-6)}
+                      {shortId(order.userId)}
                     </TableCell>
                     <TableCell>
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {order.createdAt
+                        ? new Date(order.createdAt).toLocaleDateString()
+                        : "—"}
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -115,7 +122,7 @@ export default function AdminOrders({ orders, loading, fetchData }: any) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-bold">
-                      LKR {order.totalPrice.toFixed(2)}
+                      LKR {Number(order.totalPrice || 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -128,6 +135,13 @@ export default function AdminOrders({ orders, loading, fetchData }: any) {
                     </TableCell>
                   </TableRow>
                 ))}
+                {orders.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                      No orders yet.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -177,7 +191,9 @@ export default function AdminOrders({ orders, loading, fetchData }: any) {
               >
                 Cancel
               </Button>
-              <Button type="submit">Update Order</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Updating..." : "Update Order"}
+              </Button>
             </div>
           </form>
         </DialogContent>

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useAuthStore } from "@/store/authStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,46 +7,52 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 export default function AdminCategories({ categories, loading, fetchData }: any) {
-  const { token } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const res = await fetch(`/api/categories`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name }),
-      });
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("Category name is required");
+      return;
+    }
 
-      if (!res.ok) throw new Error("Failed to save category");
+    setSaving(true);
+    try {
+      await apiFetch("/api/categories", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({ name: trimmed }),
+        fallbackError: "Failed to save category",
+      });
       toast.success("Category created");
       setIsModalOpen(false);
       setName("");
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Error saving category");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this category?")) return;
     try {
-      const res = await fetch(`/api/categories/${id}`, {
+      await apiFetch(`/api/categories/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        auth: true,
+        fallbackError: "Failed to delete category",
       });
-      if (!res.ok) throw new Error("Failed to delete");
       toast.success("Category deleted");
       fetchData();
-    } catch (err) {
-      toast.error("Error deleting category");
+    } catch (err: any) {
+      toast.error(err.message || "Error deleting category");
     }
   };
 
@@ -130,7 +135,9 @@ export default function AdminCategories({ categories, loading, fetchData }: any)
               >
                 Cancel
               </Button>
-              <Button type="submit">Save Category</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving..." : "Save Category"}
+              </Button>
             </div>
           </form>
         </DialogContent>

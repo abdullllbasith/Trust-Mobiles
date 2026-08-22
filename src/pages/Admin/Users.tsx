@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useAuthStore } from "@/store/authStore";
 import {
   Card,
   CardContent,
@@ -27,11 +26,12 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { apiFetch } from "@/lib/api";
 
-export default function AdminUsers({ users, loading, fetchData }: any) {
-  const { token } = useAuthStore();
+export default function AdminUsers({ users = [], loading, fetchData }: any) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -47,22 +47,22 @@ export default function AdminUsers({ users, loading, fetchData }: any) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingUser?.id) return;
+    setSaving(true);
     try {
-      const res = await fetch(`/api/users/${editingUser.id}`, {
+      await apiFetch(`/api/users/${editingUser.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        auth: true,
         body: JSON.stringify(formData),
+        fallbackError: "Failed to update user",
       });
-
-      if (!res.ok) throw new Error("Failed to update user");
       toast.success("User updated");
       setIsModalOpen(false);
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Error updating user");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -73,15 +73,15 @@ export default function AdminUsers({ users, loading, fetchData }: any) {
     }
     if (!confirm("Are you sure you want to delete this user?")) return;
     try {
-      const res = await fetch(`/api/users/${id}`, {
+      await apiFetch(`/api/users/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        auth: true,
+        fallbackError: "Failed to delete user",
       });
-      if (!res.ok) throw new Error("Failed to delete");
       toast.success("User deleted");
       fetchData();
-    } catch (err) {
-      toast.error("Error deleting user");
+    } catch (err: any) {
+      toast.error(err.message || "Error deleting user");
     }
   };
 
@@ -123,7 +123,9 @@ export default function AdminUsers({ users, loading, fetchData }: any) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {user.createdAt
+                        ? new Date(user.createdAt).toLocaleDateString()
+                        : "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -146,6 +148,13 @@ export default function AdminUsers({ users, loading, fetchData }: any) {
                     </TableCell>
                   </TableRow>
                 ))}
+                {users.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      No customers found.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -200,7 +209,9 @@ export default function AdminUsers({ users, loading, fetchData }: any) {
               >
                 Cancel
               </Button>
-              <Button type="submit">Save Changes</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
             </div>
           </form>
         </DialogContent>

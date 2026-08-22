@@ -7,7 +7,17 @@ import jwt from 'jsonwebtoken';
 import 'dotenv/config';
 import OpenAI from 'openai';
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const AI_MODEL = process.env.AI_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b:free';
+const openai = process.env.OPENROUTER_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: 'https://openrouter.ai/api/v1',
+      defaultHeaders: {
+        'HTTP-Referer': process.env.APP_URL || 'http://localhost:3000',
+        'X-Title': 'Matrix Mobiles',
+      },
+    })
+  : null;
 
 const app = express();
 const PORT = 3000;
@@ -399,7 +409,7 @@ app.delete('/api/brands/:id', authenticateToken, isAdmin, async (req, res) => {
 // Chat AI
 app.post('/api/chat', async (req, res) => {
   if (!openai) {
-    return res.status(500).json({ error: 'OpenAI API key not configured' });
+    return res.status(500).json({ error: 'OpenRouter API key not configured. Set OPENROUTER_API_KEY in .env' });
   }
 
   try {
@@ -433,15 +443,25 @@ app.post('/api/chat', async (req, res) => {
     let currentMessages = [systemPrompt, ...messages];
     let actionPayload = null;
 
-    const completion1 = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      // @ts-ignore
-      messages: currentMessages,
-      // @ts-ignore
-      tools: tools,
-      tool_choice: 'auto',
-      max_tokens: 500,
-    });
+    let completion1;
+    try {
+      completion1 = await openai.chat.completions.create({
+        model: AI_MODEL,
+        // @ts-ignore
+        messages: currentMessages,
+        // @ts-ignore
+        tools: tools,
+        tool_choice: 'auto',
+        max_tokens: 800,
+      });
+    } catch {
+      completion1 = await openai.chat.completions.create({
+        model: AI_MODEL,
+        // @ts-ignore
+        messages: currentMessages,
+        max_tokens: 800,
+      });
+    }
 
     const responseMessage = completion1.choices[0].message;
 
@@ -453,7 +473,6 @@ app.post('/api/chat', async (req, res) => {
           const args = JSON.parse(toolCall.function.arguments);
           const query = args.searchQuery.toLowerCase();
 
-          // Search the in-memory array
           const foundProducts = products.filter(p => 
             p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query)
           ).slice(0, 3);
@@ -487,10 +506,10 @@ app.post('/api/chat', async (req, res) => {
       }
 
       const completion2 = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: AI_MODEL,
         // @ts-ignore
         messages: currentMessages,
-        max_tokens: 500,
+        max_tokens: 800,
       });
 
       return res.json({ 
@@ -504,7 +523,7 @@ app.post('/api/chat', async (req, res) => {
       action: actionPayload
     });
   } catch (error: any) {
-    console.error('OpenAI Error:', error);
+    console.error('AI Chat Error:', error);
     res.status(500).json({ error: 'Failed to communicate with AI' });
   }
 });

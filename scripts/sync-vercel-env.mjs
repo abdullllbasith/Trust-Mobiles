@@ -7,7 +7,7 @@ import { dirname, join } from 'path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const envPath = join(root, '.env');
 const vercelBin = join(root, 'node_modules', 'vercel', 'dist', 'vc.js');
-const KEYS = ['MONGODB_URI', 'JWT_SECRET', 'OPENAI_API_KEY'];
+const KEYS = ['MONGODB_URI', 'JWT_SECRET', 'OPENROUTER_API_KEY', 'NVIDIA_API_KEY', 'AI_MODEL', 'AI_FALLBACK_MODELS'];
 const ENVIRONMENTS = ['production', 'development'];
 
 function parseEnvFile(path) {

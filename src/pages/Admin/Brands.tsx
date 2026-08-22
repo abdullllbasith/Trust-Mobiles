@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useAuthStore } from "@/store/authStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,39 +9,42 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { apiFetch } from "@/lib/api";
 
 export default function AdminBrands({ brands, categories, loading, fetchData }: any) {
-  const { token } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
 
-  const handleToggleCategory = (categoryName: string) => {
+  const handleToggleCategory = (categoryName: string, checked: boolean) => {
     setSelectedCategories((prev) =>
-      prev.includes(categoryName)
-        ? prev.filter((c) => c !== categoryName)
-        : [...prev, categoryName]
+      checked
+        ? prev.includes(categoryName) ? prev : [...prev, categoryName]
+        : prev.filter((c) => c !== categoryName),
     );
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("Brand name is required");
+      return;
+    }
     if (selectedCategories.length === 0) {
       toast.error("Please select at least one category");
       return;
     }
-    
-    try {
-      const res = await fetch(`/api/brands`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name, categories: selectedCategories }),
-      });
 
-      if (!res.ok) throw new Error("Failed to save brand");
+    setSaving(true);
+    try {
+      await apiFetch("/api/brands", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({ name: trimmed, categories: selectedCategories }),
+        fallbackError: "Failed to save brand",
+      });
       toast.success("Brand created");
       setIsModalOpen(false);
       setName("");
@@ -50,21 +52,23 @@ export default function AdminBrands({ brands, categories, loading, fetchData }: 
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Error saving brand");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this brand?")) return;
     try {
-      const res = await fetch(`/api/brands/${id}`, {
+      await apiFetch(`/api/brands/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        auth: true,
+        fallbackError: "Failed to delete brand",
       });
-      if (!res.ok) throw new Error("Failed to delete");
       toast.success("Brand deleted");
       fetchData();
-    } catch (err) {
-      toast.error("Error deleting brand");
+    } catch (err: any) {
+      toast.error(err.message || "Error deleting brand");
     }
   };
 
@@ -149,7 +153,7 @@ export default function AdminBrands({ brands, categories, loading, fetchData }: 
                 required
               />
             </div>
-            
+
             <div className="space-y-3">
               <Label>Select Categories</Label>
               <div className="grid grid-cols-2 gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
@@ -158,7 +162,9 @@ export default function AdminBrands({ brands, categories, loading, fetchData }: 
                     <Checkbox
                       id={`cat-${cat.id}`}
                       checked={selectedCategories.includes(cat.name)}
-                      onCheckedChange={() => handleToggleCategory(cat.name)}
+                      onCheckedChange={(checked) =>
+                        handleToggleCategory(cat.name, checked === true)
+                      }
                     />
                     <label
                       htmlFor={`cat-${cat.id}`}
@@ -182,7 +188,9 @@ export default function AdminBrands({ brands, categories, loading, fetchData }: 
               >
                 Cancel
               </Button>
-              <Button type="submit">Save Brand</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving..." : "Save Brand"}
+              </Button>
             </div>
           </form>
         </DialogContent>

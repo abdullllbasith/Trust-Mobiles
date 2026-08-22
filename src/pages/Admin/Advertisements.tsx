@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useAuthStore } from "@/store/authStore";
 import {
   Card,
   CardContent,
@@ -27,13 +26,14 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Plus, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { apiFetch, apiFetchArray } from "@/lib/api";
 
 export default function AdminAdvertisements() {
-  const { token } = useAuthStore();
   const [ads, setAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -48,11 +48,13 @@ export default function AdminAdvertisements() {
   const fetchAds = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/ads");
-      const data = await res.json();
-      setAds(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error("Failed to fetch ads");
+      const data = await apiFetchArray("/api/ads", {
+        fallbackError: "Failed to fetch ads",
+      });
+      setAds(data);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to fetch ads");
+      setAds([]);
     } finally {
       setLoading(false);
     }
@@ -94,25 +96,33 @@ export default function AdminAdvertisements() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.title.trim()) {
+      toast.error("Ad title is required");
+      return;
+    }
+    if (!formData.image) {
+      toast.error("Please upload an ad image");
+      return;
+    }
+
+    setSaving(true);
     try {
       const url = editingId ? `/api/ads/${editingId}` : "/api/ads";
       const method = editingId ? "PUT" : "POST";
 
-      const res = await fetch(url, {
+      await apiFetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        auth: true,
         body: JSON.stringify(formData),
+        fallbackError: "Failed to save advertisement",
       });
-
-      if (!res.ok) throw new Error("Failed to save advertisement");
       toast.success(`Advertisement ${editingId ? "updated" : "created"}`);
       setIsModalOpen(false);
       fetchAds();
     } catch (err: any) {
       toast.error(err.message || "Error saving advertisement");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -120,15 +130,15 @@ export default function AdminAdvertisements() {
     if (!window.confirm("Are you sure you want to delete this advertisement?"))
       return;
     try {
-      const res = await fetch(`/api/ads/${id}`, {
+      await apiFetch(`/api/ads/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        auth: true,
+        fallbackError: "Failed to delete advertisement",
       });
-      if (!res.ok) throw new Error("Failed to delete");
       toast.success("Advertisement deleted");
       fetchAds();
-    } catch (err) {
-      toast.error("Error deleting advertisement");
+    } catch (err: any) {
+      toast.error(err.message || "Error deleting advertisement");
     }
   };
 
@@ -330,7 +340,9 @@ export default function AdminAdvertisements() {
               >
                 Cancel
               </Button>
-              <Button type="submit">Save Advertisement</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving..." : "Save Advertisement"}
+              </Button>
             </div>
           </form>
         </DialogContent>

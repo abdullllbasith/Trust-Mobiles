@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { useAuthStore } from "@/store/authStore";
+import React, { useState } from "react";
 import {
   Card,
   CardContent,
@@ -22,20 +21,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Plus, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductImageManager } from "@/components/admin/ProductImageManager";
 import { normalizeImages } from "@/lib/productImages";
+import { apiFetch } from "@/lib/api";
 
-export default function AdminProducts({ products, categories = [], brands = [], loading, fetchData }: any) {
-  const { token } = useAuthStore();
+export default function AdminProducts({ products = [], categories = [], brands = [], loading, fetchData }: any) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -83,6 +81,12 @@ export default function AdminProducts({ products, categories = [], brands = [], 
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.name.trim() || !formData.category || !formData.brand || !formData.price) {
+      toast.error("Name, category, brand, and price are required");
+      return;
+    }
+
+    setSaving(true);
     try {
       const specsObj = specsList.reduce((acc, curr) => {
         if (curr.key.trim() && curr.value.trim()) {
@@ -93,6 +97,7 @@ export default function AdminProducts({ products, categories = [], brands = [], 
 
       const body = {
         ...formData,
+        name: formData.name.trim(),
         images: imageList,
         specs: specsObj,
       };
@@ -100,38 +105,40 @@ export default function AdminProducts({ products, categories = [], brands = [], 
       const url = editingId ? `/api/products/${editingId}` : `/api/products`;
       const method = editingId ? "PUT" : "POST";
 
-      const res = await fetch(url, {
+      await apiFetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        auth: true,
         body: JSON.stringify(body),
+        fallbackError: "Failed to save product",
       });
-
-      if (!res.ok) throw new Error("Failed to save product");
       toast.success(`Product ${editingId ? "updated" : "created"}`);
       setIsModalOpen(false);
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Error saving product");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
     try {
-      const res = await fetch(`/api/products/${id}`, {
+      await apiFetch(`/api/products/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        auth: true,
+        fallbackError: "Failed to delete product",
       });
-      if (!res.ok) throw new Error("Failed to delete");
       toast.success("Product deleted");
       fetchData();
-    } catch (err) {
-      toast.error("Error deleting product");
+    } catch (err: any) {
+      toast.error(err.message || "Error deleting product");
     }
   };
+
+  const availableBrands = brands.filter((b: any) =>
+    b.categories?.includes(formData.category),
+  );
 
   return (
     <Card>
@@ -164,16 +171,22 @@ export default function AdminProducts({ products, categories = [], brands = [], 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((product: any) => (
+                {products.map((product: any) => {
+                  const thumb = normalizeImages(product.images)[0];
+                  return (
                   <TableRow key={product.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-secondary rounded flex items-center justify-center mix-blend-multiply p-1">
-                          <img
-                            src={normalizeImages(product.images)[0]}
-                            alt={product.name}
-                            className="w-full h-full object-contain"
-                          />
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt={product.name}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">N/A</span>
+                          )}
                         </div>
                         <div>
                           <div className="font-medium">{product.name}</div>
@@ -212,7 +225,15 @@ export default function AdminProducts({ products, categories = [], brands = [], 
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
+                {products.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      No products found. Create one to get started.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -242,44 +263,42 @@ export default function AdminProducts({ products, categories = [], brands = [], 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Select
+                <select
+                  className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={formData.category}
-                  onValueChange={(val) => setFormData({ ...formData, category: val, brand: "" })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, category: e.target.value, brand: "" })
+                  }
                   required
                 >
-                  <SelectTrigger className="rounded-[8px]">
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-[8px]">
-                    {categories.map((cat: any) => (
-                      <SelectItem key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">Select Category</option>
+                  {categories.map((cat: any) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label>Brand</Label>
-                <Select
+                <select
+                  className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
                   value={formData.brand}
-                  onValueChange={(val) => setFormData({ ...formData, brand: val })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, brand: e.target.value })
+                  }
                   required
                   disabled={!formData.category}
                 >
-                  <SelectTrigger className="rounded-[8px]">
-                    <SelectValue placeholder={formData.category ? "Select Brand" : "Select Category First"} />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-[8px]">
-                    {brands
-                      .filter((b: any) => b.categories?.includes(formData.category))
-                      .map((brand: any) => (
-                        <SelectItem key={brand.id} value={brand.name}>
-                          {brand.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">
+                    {formData.category ? "Select Brand" : "Select Category First"}
+                  </option>
+                  {availableBrands.map((brand: any) => (
+                    <option key={brand.id} value={brand.name}>
+                      {brand.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -377,7 +396,9 @@ export default function AdminProducts({ products, categories = [], brands = [], 
               >
                 Cancel
               </Button>
-              <Button type="submit">Save Product</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving..." : "Save Product"}
+              </Button>
             </div>
           </form>
         </DialogContent>
