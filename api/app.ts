@@ -61,7 +61,24 @@ function getJwtSecret(): string {
 }
 
 app.use(cors({
-  origin: env.isProduction ? env.APP_URL : true,
+  origin: (origin, callback) => {
+    // Allow non-browser / same-origin requests
+    if (!origin) return callback(null, true);
+    if (!env.isProduction) return callback(null, true);
+
+    const allowed = new Set(
+      [
+        env.APP_URL,
+        'https://trust-mobiles.vercel.app',
+        process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '',
+      ].filter(Boolean),
+    );
+
+    if (allowed.has(origin) || /\.vercel\.app$/i.test(new URL(origin).hostname)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '15mb' }));
@@ -324,45 +341,59 @@ function mongoErrorMessage(error: any, fallback: string) {
   return fallback;
 }
 
-// Database connection singleton
+// Database connection singleton (safe for Vercel serverless cold starts)
 let isConnected = false;
+let connectPromise: Promise<void> | null = null;
+
 export const connectDB = async () => {
-  if (isConnected) return;
-  try {
-    if (env.isVercel) {
-      assertVercelEnv();
-    }
+  if (isConnected && mongoose.connection.readyState === 1) return;
+  if (connectPromise) return connectPromise;
 
-    let mongoUri = env.MONGODB_URI;
-
-    // If no external MongoDB URI is provided, start a local in-memory one
-    if (!mongoUri) {
+  connectPromise = (async () => {
+    try {
       if (env.isVercel) {
-        throw new Error("CRITICAL: MONGODB_URI environment variable is missing in Vercel. Please add it to your Vercel project settings.");
+        assertVercelEnv();
       }
-      console.log('No MONGODB_URI provided, starting in-memory MongoDB...');
-      const { MongoMemoryServer } = await import('mongodb-memory-server');
-      const mongoServer = await MongoMemoryServer.create();
-      mongoUri = mongoServer.getUri();
-    }
 
-    const conn = await mongoose.connect(mongoUri);
-    console.log(`\n========================================`);
-    console.log(`✅ MongoDB Successfully Connected!`);
-    console.log(`🚀 Host: ${conn.connection.host}`);
-    console.log(`📁 Database: ${conn.connection.name}`);
-    console.log(`========================================\n`);
+      let mongoUri = env.MONGODB_URI;
 
-    isConnected = true;
-    await seedData();
-    console.log('Database seeded');
-  } catch (error: any) {
-    console.error('Failed to connect to MongoDB:', error);
-    if (env.isVercel && !env.MONGODB_URI) {
-      // Rethrow to allow serverless function to explicitly fail instead of hanging
-      throw error;
+      if (!mongoUri) {
+        if (env.isVercel) {
+          throw new Error(
+            'CRITICAL: MONGODB_URI environment variable is missing in Vercel. Please add it to your Vercel project settings.',
+          );
+        }
+        console.log('No MONGODB_URI provided, starting in-memory MongoDB...');
+        const { MongoMemoryServer } = await import('mongodb-memory-server');
+        const mongoServer = await MongoMemoryServer.create();
+        mongoUri = mongoServer.getUri();
+      }
+
+      // Force IPv4 — Vercel + Atlas SRV often hangs on broken IPv6 routes.
+      const conn = await mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 20000,
+        maxPoolSize: 5,
+        family: 4,
+        bufferCommands: false,
+      });
+
+      console.log(`MongoDB connected: ${conn.connection.host}/${conn.connection.name}`);
+      isConnected = true;
+      await seedData();
+      console.log('Database ready');
+    } catch (error: any) {
+      isConnected = false;
+      connectPromise = null;
+      console.error('Failed to connect to MongoDB:', error?.message || error);
+      if (env.isVercel || env.isProduction) {
+        throw error;
+      }
     }
-  }
+  })();
+
+  return connectPromise;
 };
 
 // Health check (useful for verifying Vercel env + DB connectivity)

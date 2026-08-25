@@ -81,11 +81,32 @@ export default function Shop() {
 
   useEffect(() => {
     setLoading(true);
+    let cancelled = false;
+
     fetch(`/api/products`)
-      .then((res) => res.json())
-      .then((data) => setProducts(data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(
+            (data && data.error) || `Failed to load products (${res.status})`,
+          );
+        }
+        return Array.isArray(data) ? data : [];
+      })
+      .then((data) => {
+        if (!cancelled) setProducts(data);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!cancelled) setProducts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredProducts = useMemo(() => {
