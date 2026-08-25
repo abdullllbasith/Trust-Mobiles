@@ -342,77 +342,94 @@ function mongoErrorMessage(error: any, fallback: string) {
 }
 
 // Database connection singleton (safe for Vercel serverless cold starts)
-let isConnected = false;
-let connectPromise: Promise<void> | null = null;
+type MongoCache = {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+};
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __trustMobileMongo: MongoCache | undefined;
+}
+
+const mongoCache: MongoCache = global.__trustMobileMongo || { conn: null, promise: null };
+global.__trustMobileMongo = mongoCache;
 
 export const connectDB = async () => {
-  if (isConnected && mongoose.connection.readyState === 1) return;
-  if (connectPromise) return connectPromise;
+  if (mongoCache.conn && mongoose.connection.readyState === 1) {
+    return;
+  }
 
-  connectPromise = (async () => {
-    try {
-      if (env.isVercel) {
-        assertVercelEnv();
-      }
+  if (env.isVercel) {
+    assertVercelEnv();
+  }
 
-      let mongoUri = env.MONGODB_URI;
+  let mongoUri = env.MONGODB_URI;
 
-      if (!mongoUri) {
-        if (env.isVercel) {
-          throw new Error(
-            'CRITICAL: MONGODB_URI environment variable is missing in Vercel. Please add it to your Vercel project settings.',
-          );
-        }
-        console.log('No MONGODB_URI provided, starting in-memory MongoDB...');
-        const { MongoMemoryServer } = await import('mongodb-memory-server');
-        const mongoServer = await MongoMemoryServer.create();
-        mongoUri = mongoServer.getUri();
-      }
+  if (!mongoUri) {
+    if (env.isVercel) {
+      throw new Error(
+        'CRITICAL: MONGODB_URI environment variable is missing in Vercel. Please add it to your Vercel project settings.',
+      );
+    }
+    console.log('No MONGODB_URI provided, starting in-memory MongoDB...');
+    const { MongoMemoryServer } = await import('mongodb-memory-server');
+    const mongoServer = await MongoMemoryServer.create();
+    mongoUri = mongoServer.getUri();
+  }
 
-      // Force IPv4 — Vercel + Atlas SRV often hangs on broken IPv6 routes.
-      const conn = await mongoose.connect(mongoUri, {
+  if (!mongoCache.promise) {
+    mongoCache.promise = mongoose
+      .connect(mongoUri, {
+        // Force IPv4 — Vercel + Atlas SRV often hangs on broken IPv6 routes.
         serverSelectionTimeoutMS: 10000,
         connectTimeoutMS: 10000,
         socketTimeoutMS: 20000,
         maxPoolSize: 5,
         family: 4,
         bufferCommands: false,
-      });
-
-      console.log(`MongoDB connected: ${conn.connection.host}/${conn.connection.name}`);
-      isConnected = true;
-      await seedData();
-      console.log('Database ready');
-    } catch (error: any) {
-      isConnected = false;
-      connectPromise = null;
-      console.error('Failed to connect to MongoDB:', error?.message || error);
-      if (env.isVercel || env.isProduction) {
+      })
+      .then(async (conn) => {
+        console.log(`MongoDB connected: ${conn.connection.host}/${conn.connection.name}`);
+        await seedData();
+        console.log('Database ready');
+        return conn;
+      })
+      .catch((error) => {
+        mongoCache.promise = null;
+        mongoCache.conn = null;
+        console.error('Failed to connect to MongoDB:', error?.message || error);
         throw error;
-      }
-    }
-  })();
+      });
+  }
 
-  return connectPromise;
+  mongoCache.conn = await mongoCache.promise;
 };
 
 // Health check (useful for verifying Vercel env + DB connectivity)
 app.get('/api/health', async (_req, res) => {
   const missingEnv = getMissingVercelEnvVars();
   let dbStatus: 'connected' | 'disconnected' | 'error' = 'disconnected';
+  let dbError: string | undefined;
 
   try {
     await connectDB();
     dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  } catch {
+  } catch (error: any) {
     dbStatus = 'error';
+    dbError = String(error?.message || error);
   }
 
   res.status(missingEnv.length > 0 || dbStatus === 'error' ? 503 : 200).json({
     ok: missingEnv.length === 0 && dbStatus === 'connected',
     environment: env.isVercel ? 'vercel' : 'local',
     database: dbStatus,
+    dbError,
     missingEnv,
+    hint:
+      dbStatus === 'error'
+        ? 'MongoDB Atlas is blocking Vercel. Open Atlas → Network Access → Add IP Address → Allow Access from Anywhere (0.0.0.0/0), wait ~1 minute, then reload the shop.'
+        : undefined,
     services: {
       ai: true,
       provider: resolveAIProvider() ?? 'local',
@@ -437,8 +454,12 @@ app.use('/api', async (req, res, next) => {
     await connectDB();
     next();
   } catch (error: any) {
-    console.error("API Middleware DB Error:", error);
-    res.status(500).json({ error: 'Internal Server Error: Database connection failed. Please check environment variables.' });
+    console.error('API Middleware DB Error:', error);
+    res.status(503).json({
+      error:
+        'Database connection failed. If env vars are set, open MongoDB Atlas → Network Access and allow 0.0.0.0/0 so Vercel can connect.',
+      detail: String(error?.message || error),
+    });
   }
 });
 

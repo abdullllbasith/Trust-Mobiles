@@ -58,6 +58,7 @@ export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sort, setSort] = useState("popular");
   const [searchQuery, setSearchQuery] = useState("");
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
@@ -81,6 +82,7 @@ export default function Shop() {
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(null);
     let cancelled = false;
 
     fetch(`/api/products`)
@@ -88,7 +90,8 @@ export default function Shop() {
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           throw new Error(
-            (data && data.error) || `Failed to load products (${res.status})`,
+            (data && (data.error || data.detail)) ||
+              `Failed to load products (${res.status})`,
           );
         }
         return Array.isArray(data) ? data : [];
@@ -98,7 +101,10 @@ export default function Shop() {
       })
       .catch((err) => {
         console.error(err);
-        if (!cancelled) setProducts([]);
+        if (!cancelled) {
+          setProducts([]);
+          setLoadError(err?.message || "Failed to load products");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -572,6 +578,26 @@ export default function Shop() {
                   <div className="h-5 w-3/4 animate-pulse rounded bg-slate-100" />
                 </div>
               ))}
+            </div>
+          ) : loadError ? (
+            <div className="surface-card py-20 text-center px-6">
+              <h2 className="mb-2 font-display text-xl font-semibold text-[#0D162B]">
+                Couldn’t load products
+              </h2>
+              <p className="mb-3 text-sm text-slate-500 max-w-lg mx-auto">
+                {loadError}
+              </p>
+              <p className="mb-5 text-xs text-slate-400 max-w-lg mx-auto">
+                If this keeps happening, open MongoDB Atlas → Network Access and
+                allow <span className="font-semibold">0.0.0.0/0</span> so Vercel
+                can reach the database.
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="btn-secondary"
+              >
+                Try again
+              </button>
             </div>
           ) : filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
