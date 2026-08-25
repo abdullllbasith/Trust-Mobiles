@@ -42,7 +42,6 @@ import {
   Heart,
   Eye,
   ShoppingBag,
-  Sparkles,
   Mail,
   Quote
 } from "lucide-react";
@@ -245,7 +244,7 @@ export default function Home() {
       {/* HERO SECTION */}
       <section className="relative w-full pt-[32px] pb-[90px] px-4 md:px-8 overflow-hidden flex justify-center">
         {/* Abstract animated blurred blobs */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-[#2FA84F]/10 blur-[120px] pointer-events-none mix-blend-multiply opacity-70"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-[#2E75B6]/10 blur-[120px] pointer-events-none mix-blend-multiply opacity-70"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-[#121212]/5 blur-[100px] pointer-events-none mix-blend-multiply opacity-50"></div>
 
         <div style={{ paddingTop: '43px', paddingBottom: '35px' }} className="max-w-[1400px] w-full relative z-10 glass-panel rounded-[2rem] md:rounded-[3rem] overflow-hidden grid grid-cols-1 lg:grid-cols-2 items-center border border-white/60 px-8 md:px-12 lg:px-16 xl:px-20 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] bg-white/40 gap-8 xl:gap-12">
@@ -256,31 +255,24 @@ export default function Home() {
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col items-center lg:items-start"
             >
-              <div className="flex items-center justify-center lg:justify-start gap-2 mb-6 w-full">
-                <span className="bg-[#121212] text-white text-[10px] sm:text-xs font-semibold uppercase tracking-widest px-3 sm:px-4 py-1.5 sm:py-2 rounded-full inline-flex items-center gap-1.5 shadow-lg">
-                  <Sparkles className="w-3.5 h-3.5" /> Premium Reseller
-                </span>
-              </div>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[60px] xl:text-[90px] font-display font-medium leading-[1.05] text-[#111] tracking-tighter">
-                Your Next{" "}
-                <span className="text-[#2FA84F] font-bold">Device</span>
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[56px] xl:text-[72px] font-display font-semibold leading-[1.05] text-[#0D162B] tracking-tight">
+                Phones &amp; accessories
                 <br />
-                Awaits.
+                <span className="text-[#2E75B6]">you can trust.</span>
               </h1>
-              <p className="text-gray-500 mt-4 sm:mt-6 xl:mt-8 text-base sm:text-lg md:text-xl font-medium max-w-lg leading-relaxed mx-auto lg:mx-0">
-                The latest flagships from Apple, Samsung, Google, and more.
-                Unlocked, authentic, and ready for you.
+              <p className="text-[#5A6577] mt-4 sm:mt-6 xl:mt-8 text-base sm:text-lg md:text-xl font-medium max-w-lg leading-relaxed mx-auto lg:mx-0">
+                Shop unlocked phones and accessories. Checkout is free — we confirm every order on WhatsApp.
               </p>
               <div className="mt-6 sm:mt-8 xl:mt-12 flex flex-wrap justify-center lg:justify-start gap-3 sm:gap-4 w-full">
-                <Link to="/product/1">
-                  <button className="bg-[#121212] hover:bg-[#2FA84F] text-white px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base rounded-full font-semibold transition-all duration-300 shadow-xl hover:shadow-[#2FA84F]/40 hover:shadow-2xl flex gap-2 items-center group transform hover:-translate-y-1">
-                    Pre-Order Now{" "}
+                <Link to="/shop">
+                  <button className="bg-[#0D162B] hover:bg-[#2E75B6] text-white px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base rounded-full font-semibold transition-all duration-300 shadow-xl hover:shadow-[#2E75B6]/40 hover:shadow-2xl flex gap-2 items-center group transform hover:-translate-y-1">
+                    Shop now{" "}
                     <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
                   </button>
                 </Link>
-                <Link to="/shop">
-                  <button className="bg-transparent border border-gray-300 hover:border-[#121212] text-[#121212] px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base rounded-full font-semibold transition-colors">
-                    Explore Store
+                <Link to="/checkout">
+                  <button className="bg-transparent border border-[#0D162B]/20 hover:border-[#2E75B6] text-[#0D162B] px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base rounded-full font-semibold transition-colors">
+                    WhatsApp checkout
                   </button>
                 </Link>
               </div>
@@ -295,7 +287,7 @@ export default function Home() {
             className="hidden lg:flex w-full aspect-square max-h-[600px] justify-center items-center relative"
           >
             <div className="relative w-full h-full flex items-center justify-center">
-              <div className="absolute w-[80%] h-[95%] bg-gradient-to-tr from-[#121212] to-[#2FA84F] rounded-[3rem] opacity-10 rotate-6 blur-2xl pointer-events-none"></div>
+              <div className="absolute w-[80%] h-[95%] bg-gradient-to-tr from-[#121212] to-[#2E75B6] rounded-[3rem] opacity-10 rotate-6 blur-2xl pointer-events-none"></div>
               <Phone3D />
             </div>
           </motion.div>
@@ -317,11 +309,11 @@ export default function Home() {
                 Trade in your old device and get up to LKR 500 towards the
                 latest flagship smartphones.
               </p>
-              <button className="text-[#121212] bg-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-[#2FA84F] hover:text-white transition-all">
+              <button className="text-[#121212] bg-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-[#2E75B6] hover:text-white transition-all">
                 Value Your Device
               </button>
             </div>
-            <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-[#2FA84F]/30 rounded-full blur-[80px] group-hover:scale-125 group-hover:bg-[#2FA84F]/40 transition-all duration-700"></div>
+            <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-[#2E75B6]/30 rounded-full blur-[80px] group-hover:scale-125 group-hover:bg-[#2E75B6]/40 transition-all duration-700"></div>
           </motion.div>
 
           <motion.div
@@ -331,7 +323,7 @@ export default function Home() {
             <div className="relative z-10 flex flex-col h-full justify-between">
               <div>
                 <div className="bg-white/50 w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-white">
-                  <Truck className="w-7 h-7 text-[#2FA84F]" />
+                  <Truck className="w-7 h-7 text-[#2E75B6]" />
                 </div>
                 <h3 className="text-3xl font-display font-medium">
                   Free Global Delivery
@@ -428,7 +420,7 @@ export default function Home() {
               <Link to={`/shop?category=${cat.name}`} key={cat.name}>
                 <div className="glass-panel p-8 rounded-[2rem] flex flex-col items-center justify-center gap-5 hover:-translate-y-2 transition-transform duration-300 group cursor-pointer relative overflow-hidden bg-white/40">
                   <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-40 transition-opacity"></div>
-                  <div className="relative z-10 text-[#121212] opacity-80 group-hover:opacity-100 group-hover:text-[#2FA84F] transition-colors">
+                  <div className="relative z-10 text-[#121212] opacity-80 group-hover:opacity-100 group-hover:text-[#2E75B6] transition-colors">
                     {cat.icon}
                   </div>
                   <span className="font-semibold text-sm text-[#111] text-center relative z-10">
@@ -453,7 +445,7 @@ export default function Home() {
             </div>
             <Link
               to="/shop"
-              className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#2FA84F] transition-colors whitespace-nowrap"
+              className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#2E75B6] transition-colors whitespace-nowrap"
             >
               View Collection <ArrowRight className="w-4 h-4" />
             </Link>
@@ -477,7 +469,7 @@ export default function Home() {
                       viewport={{ once: true, margin: "-100px" }}
                       transition={{ duration: 0.5, delay: (idx % 4) * 0.1 }}
                     >
-                      <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-black/[0.03] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] hover:border-black/5 transition-all duration-300 h-[360px] md:h-[460px] flex flex-col group relative overflow-hidden">
+                      <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-black/[0.03] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] hover:border-black/5 transition-all duration-300 min-h-[380px] md:min-h-[500px] flex flex-col group relative overflow-hidden">
                         {/* Action Icons */}
                         <div className="absolute top-3 right-3 md:top-4 md:right-4 flex flex-col gap-2 z-20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity lg:translate-x-2 lg:group-hover:translate-x-0">
                           <button
@@ -510,7 +502,7 @@ export default function Home() {
                           className="flex-1 flex flex-col h-full"
                         >
                           {/* Edge-to-edge Image Container */}
-                          <div className="w-full h-44 md:h-64 bg-[#F5F7F6] relative overflow-hidden group-hover:bg-[#F0F2F1] transition-colors">
+                          <div className="w-full h-44 md:h-64 bg-[#F7FAFC] relative overflow-hidden group-hover:bg-[#F0F2F1] transition-colors">
                             <img
                               src={images[0]}
                               alt={product.name}
@@ -536,26 +528,27 @@ export default function Home() {
                               ))}
                             </div>
 
-                            <div className="flex items-end justify-between mt-auto pt-4 md:pt-5 border-t border-black/5">
-                              <div>
+                            <div className="mt-auto pt-4 md:pt-5 border-t border-black/5">
+                              <div className="mb-3">
                                 <div className="text-[#121212] text-base md:text-xl font-display font-bold">
                                   LKR{" "}
-                                  {(
+                                  {Math.round(
                                     product.price *
-                                    (1 - product.discount / 100)
-                                  ).toFixed(2)}
+                                      (1 - product.discount / 100),
+                                  ).toLocaleString("en-US")}
                                 </div>
                                 {product.discount > 0 && (
-                                  <div className="text-[10px] md:text-xs text-gray-400 font-medium line-through">
-                                    LKR {product.price}
+                                  <div className="text-xs md:text-sm text-gray-400 font-medium line-through">
+                                    LKR {Math.round(product.price).toLocaleString("en-US")}
                                   </div>
                                 )}
                               </div>
                               <button
                                 onClick={(e) => handleAddToCart(e, product)}
-                                className="bg-[#111] text-white p-2.5 md:p-3.5 rounded-full hover:bg-[#2FA84F] hover:-translate-y-1 transition-all shadow-md"
+                                className="w-full bg-[#111] text-white py-2.5 md:py-3 rounded-xl text-sm font-semibold hover:bg-[#2E75B6] transition-all shadow-md flex items-center justify-center gap-2"
                               >
-                                <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
+                                <ShoppingBag className="w-4 h-4" />
+                                Add to cart
                               </button>
                             </div>
                           </div>
@@ -596,13 +589,13 @@ export default function Home() {
         {ads.filter(ad => ad.position === 'flash_sale').map((ad, idx) => (
           <div key={idx} className="mb-24">
             <div className="bg-[#121212] rounded-[3rem] p-8 md:p-16 text-white relative overflow-hidden flex flex-col lg:flex-row items-center gap-12 shadow-2xl">
-              <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-[#2FA84F] rounded-full mix-blend-screen filter blur-[150px] opacity-20 pointer-events-none"></div>
+              <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-[#2E75B6] rounded-full mix-blend-screen filter blur-[150px] opacity-20 pointer-events-none"></div>
 
               <div className="flex-1 z-10 w-full text-center lg:text-left">
                 <span className="bg-red-500 text-white text-xs font-semibold uppercase tracking-widest px-4 py-2 rounded-full inline-block mb-6 shadow-sm border border-red-400/50">
                   Flash Sale • {ad.endDate ? <FlashSaleTimer endDate={ad.endDate} /> : "Limited Time"}
                 </span>
-                <h2 className="text-4xl md:text-6xl font-display font-medium mb-6 leading-[1.1] whitespace-pre-line text-[#2FA84F]">
+                <h2 className="text-4xl md:text-6xl font-display font-medium mb-6 leading-[1.1] whitespace-pre-line text-[#2E75B6]">
                   {ad.title}
                 </h2>
                 {ad.description && (
@@ -611,7 +604,7 @@ export default function Home() {
                   </p>
                 )}
 
-                <a href={ad.link || "#"} target={ad.link ? "_blank" : undefined} className="inline-block mt-2 bg-white text-[#121212] px-8 py-4 rounded-full font-semibold hover:bg-[#2FA84F] hover:text-white transform hover:scale-105 transition-all outline-none">
+                <a href={ad.link || "#"} target={ad.link ? "_blank" : undefined} className="inline-block mt-2 bg-white text-[#121212] px-8 py-4 rounded-full font-semibold hover:bg-[#2E75B6] hover:text-white transform hover:scale-105 transition-all outline-none">
                   Claim Deal Now
                 </a>
               </div>
@@ -673,7 +666,7 @@ export default function Home() {
                 Latest news, reviews, and guides from the tech world.
               </p>
             </div>
-            <a href="https://www.wired.com/category/gear/" target="_blank" rel="noopener noreferrer" className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#2FA84F] transition-colors whitespace-nowrap">
+            <a href="https://www.wired.com/category/gear/" target="_blank" rel="noopener noreferrer" className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#2E75B6] transition-colors whitespace-nowrap">
               Read All Articles <ArrowRight className="w-4 h-4" />
             </a>
           </div>
@@ -688,7 +681,7 @@ export default function Home() {
                 </div>
                 <div className="p-6 md:p-8 flex-1 flex flex-col">
                   <span className="text-sm text-gray-400 font-medium mb-3">{post.date}</span>
-                  <h3 className="font-display font-semibold text-xl text-[#111] leading-snug mb-4 group-hover:text-[#2FA84F] transition-colors">{post.title}</h3>
+                  <h3 className="font-display font-semibold text-xl text-[#111] leading-snug mb-4 group-hover:text-[#2E75B6] transition-colors">{post.title}</h3>
                   <div className="mt-auto flex items-center gap-2 text-sm font-bold text-[#121212]">
                     Read Article <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -701,7 +694,7 @@ export default function Home() {
         {/* NEWSLETTER */}
         <section className="mb-24">
           <div className="bg-[#121212] rounded-[3rem] p-10 md:p-20 relative overflow-hidden flex justify-center text-center">
-            <div className="absolute top-[-50%] left-[-20%] w-[800px] h-[800px] bg-[#2FA84F] rounded-full mix-blend-screen filter blur-[200px] opacity-20 pointer-events-none"></div>
+            <div className="absolute top-[-50%] left-[-20%] w-[800px] h-[800px] bg-[#2E75B6] rounded-full mix-blend-screen filter blur-[200px] opacity-20 pointer-events-none"></div>
             <div className="relative z-10 max-w-2xl">
               <div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-8 backdrop-blur-md border border-white/10">
                 <Mail className="w-8 h-8 text-white" />
@@ -716,10 +709,10 @@ export default function Home() {
                 <input 
                   type="email" 
                   placeholder="Enter your email address" 
-                  className="flex-1 bg-white/5 border border-white/10 text-white rounded-full px-6 py-4 focus:outline-none focus:border-[#2FA84F] transition-colors placeholder:text-white/30"
+                  className="flex-1 bg-white/5 border border-white/10 text-white rounded-full px-6 py-4 focus:outline-none focus:border-[#2E75B6] transition-colors placeholder:text-white/30"
                   required
                 />
-                <button type="submit" className="bg-[#2FA84F] text-white font-semibold rounded-full px-8 py-4 hover:bg-white hover:text-[#121212] transition-colors shadow-[0_0_20px_rgba(47,168,79,0.3)] hover:shadow-white/20 whitespace-nowrap">
+                <button type="submit" className="bg-[#2E75B6] text-white font-semibold rounded-full px-8 py-4 hover:bg-white hover:text-[#0D162B] transition-colors shadow-[0_0_20px_rgba(46,117,182,0.35)] hover:shadow-white/20 whitespace-nowrap">
                   Subscribe
                 </button>
               </form>
@@ -753,7 +746,7 @@ export default function Home() {
               },
             ].map((feat, i) => (
               <div key={i} className="flex flex-col items-center group">
-                <div className="bg-[#f0f0f0] text-[#121212] p-4 rounded-full mb-5 group-hover:bg-[#2FA84F] group-hover:text-white transition-colors duration-300">
+                <div className="bg-[#f0f0f0] text-[#121212] p-4 rounded-full mb-5 group-hover:bg-[#2E75B6] group-hover:text-white transition-colors duration-300">
                   {feat.icon}
                 </div>
                 <h3 className="font-display font-medium text-[#111] text-lg mb-2">

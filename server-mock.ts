@@ -14,14 +14,16 @@ const openai = process.env.OPENROUTER_API_KEY
       baseURL: 'https://openrouter.ai/api/v1',
       defaultHeaders: {
         'HTTP-Referer': process.env.APP_URL || 'http://localhost:3000',
-        'X-Title': 'Matrix Mobiles',
+        'X-Title': 'Trust Mobile',
       },
     })
   : null;
 
 const app = express();
 const PORT = 3000;
-const SECRET_KEY = process.env.JWT_SECRET || 'matrix-mobiles-super-secret-key';
+const SECRET_KEY = process.env.JWT_SECRET || 'dev-only-trust-mobile-jwt';
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@trustmobile.local').toLowerCase();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'TrustAdmin!2026';
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -41,8 +43,8 @@ const generateId = () => Math.random().toString(36).substring(2, 15);
 // Seed Data
 const seedData = async () => {
   if (users.filter(u => u.role === 'admin').length === 0) {
-    const hash = await bcrypt.hash('admin123', 10);
-    users.push({ id: generateId(), name: 'Admin', email: 'admin@matrix.com', password: hash, role: 'admin', createdAt: new Date() });
+    const hash = await bcrypt.hash(ADMIN_PASSWORD, 12);
+    users.push({ id: generateId(), name: 'Admin', email: ADMIN_EMAIL, password: hash, role: 'admin', createdAt: new Date() });
   }
 
   if (products.length === 0) {
@@ -105,7 +107,7 @@ const authenticateToken = (req: any, res: any, next: any) => {
 };
 
 const isAdmin = (req: any, res: any, next: any) => {
-  if (req.user.role !== 'admin') {
+  if (!req.user || req.user.role !== 'admin' || req.user.typ !== 'admin') {
     return res.status(403).json({ error: 'Require Admin Role' });
   }
   next();
@@ -113,39 +115,33 @@ const isAdmin = (req: any, res: any, next: any) => {
 
 // --- API ROUTES ---
 
-// Auth
-app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password) return res.status(400).json({ error: 'All fields are required' });
-  
-  try {
-    const existingUser = users.find(u => u.email === email);
-    if (existingUser) return res.status(400).json({ error: 'Email already exists' });
-    
-    const hash = await bcrypt.hash(password, 10);
-    const user = { id: generateId(), name, email, password: hash, role: 'user', createdAt: new Date() };
-    users.push(user);
-    res.status(201).json({ id: user.id, name: user.name, email: user.email, role: user.role });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error during registration' });
-  }
+// Auth — customer accounts disabled
+app.post('/api/auth/register', (_req, res) => {
+  res.status(403).json({ error: 'Customer accounts are disabled. Checkout via WhatsApp instead.' });
 });
 
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  
+app.post('/api/auth/login', (_req, res) => {
+  res.status(403).json({ error: 'Use /admin/login for staff access.' });
+});
+
+app.post('/api/admin/login', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const password = String(req.body?.password || '');
+
   try {
-    const user = users.find(u => u.email === email);
-    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
-    
+    const user = users.find(u => u.email === email && u.role === 'admin');
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
     const result = await bcrypt.compare(password, user.password as string);
-    if (result) {
-      const token = jwt.sign({ id: user.id, email: user.email, role: user.role, name: user.name }, SECRET_KEY, { expiresIn: '24h' });
-      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-    } else {
-      res.status(400).json({ error: 'Invalid credentials' });
-    }
-  } catch (error) {
+    if (!result) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, name: user.name, typ: 'admin' },
+      SECRET_KEY,
+      { expiresIn: '8h' },
+    );
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  } catch {
     res.status(500).json({ error: 'Server error during login' });
   }
 });
@@ -211,33 +207,37 @@ app.put('/api/products/:id', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-// Orders
-app.post('/api/orders', authenticateToken, async (req: any, res) => {
-  const { items, totalPrice, address } = req.body;
-  const userId = req.user.id;
-  
+// Orders — guest WhatsApp checkout
+app.post('/api/orders', async (req, res) => {
+  const { items, totalPrice, address, channel } = req.body;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Cart items are required' });
+  }
+
   try {
     const newOrder = {
-      id: generateId(), userId, items, totalPrice, paymentStatus: 'pending', orderStatus: 'processing', address, createdAt: new Date()
+      id: generateId(),
+      items,
+      totalPrice,
+      paymentStatus: 'pending',
+      orderStatus: 'processing',
+      channel: channel || 'whatsapp',
+      address,
+      createdAt: new Date(),
     };
     orders.push(newOrder);
     res.status(201).json({ id: newOrder.id, success: true });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to place order' });
   }
 });
 
-app.get('/api/orders', authenticateToken, async (req: any, res) => {
-  const userId = req.user.id;
-  
+app.get('/api/orders', authenticateToken, isAdmin, async (_req, res) => {
   try {
-    let result = orders;
-    if (req.user.role !== 'admin') {
-      result = orders.filter(o => o.userId === userId);
-    }
-    result = [...result].sort((a, b) => b.createdAt - a.createdAt);
+    const result = [...orders].sort((a, b) => b.createdAt - a.createdAt);
     res.json(result);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
 });
@@ -417,7 +417,7 @@ app.post('/api/chat', async (req, res) => {
     
     const systemPrompt = {
       role: 'system',
-      content: 'You are a helpful, expert AI shopping assistant for Matrix Mobiles. You help users find the best tech devices, compare specifications, and provide recommendations based on their needs. Keep your answers concise, friendly, and formatted neatly. STRICT RULE: You MUST ONLY answer questions related to Matrix Mobiles, mobile phones, tech accessories, store policies, or shopping. If a user asks a question completely unrelated to these topics (such as writing code, math, history, general knowledge, etc.), you must politely refuse to answer and remind them that you are strictly a Matrix Mobiles shopping assistant. IMPORTANT: If the user asks about a specific product, phone, or device, you MUST use the `check_product_availability` function to query the database. Do NOT guess if a product is available.'
+      content: 'You are a helpful, expert AI shopping assistant for Trust Mobile. You help users find the best tech devices, compare specifications, and provide recommendations based on their needs. Keep your answers concise, friendly, and formatted neatly. STRICT RULE: You MUST ONLY answer questions related to Trust Mobile, mobile phones, tech accessories, store policies, or shopping. If a user asks a question completely unrelated to these topics (such as writing code, math, history, general knowledge, etc.), you must politely refuse to answer and remind them that you are strictly a Trust Mobile shopping assistant. IMPORTANT: If the user asks about a specific product, phone, or device, you MUST use the `check_product_availability` function to query the database. Do NOT guess if a product is available.'
     };
 
     const tools = [

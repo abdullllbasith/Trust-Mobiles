@@ -27,9 +27,9 @@ export default function Wishlist() {
   };
 
   return (
-    <div className="flex-1 bg-[#F5F7F6] py-12 min-h-screen">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        <h1 className="text-3xl lg:text-4xl font-extrabold text-gray-900 mb-2">
+    <div className="flex-1 bg-[#F7FAFC] py-12 min-h-screen">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-8">
+        <h1 className="text-xl md:text-2xl font-extrabold text-gray-900 mb-2">
           My Wishlist
         </h1>
         <p className="text-gray-500 font-medium mb-10">
@@ -48,7 +48,7 @@ export default function Wishlist() {
               Looks like you haven't added any products to your wishlist yet.
             </p>
             <Link to="/shop">
-              <button className="bg-black text-white px-8 py-4 rounded-full font-bold hover:bg-[#2FA84F] transition-colors shadow-md">
+              <button className="bg-black text-white px-5 py-2.5 rounded-lg font-bold hover:bg-[#2E75B6] transition-colors shadow-md">
                 Explore Store
               </button>
             </Link>
@@ -67,7 +67,7 @@ export default function Wishlist() {
                   animate={{ opacity: 1, y: 0 }}
                   layout
                 >
-                  <div className="bg-white p-5 rounded-3xl shadow-sm border border-transparent hover:border-[#2FA84F]/30 hover:shadow-xl transition-all h-[400px] flex flex-col group relative">
+                  <div className="bg-white p-5 rounded-3xl shadow-sm border border-transparent hover:border-[#2E75B6]/30 hover:shadow-xl transition-all h-[400px] flex flex-col group relative">
                     <button
                       onClick={() => {
                         removeItem(product.id);
@@ -82,9 +82,9 @@ export default function Wishlist() {
                       to={`/product/${product.id}`}
                       className="flex-1 flex flex-col h-full mt-2"
                     >
-                      <div className="w-full h-44 bg-[#F5F7F6] rounded-2xl mb-4 flex items-center justify-center p-6 relative overflow-hidden">
+                      <div className="w-full h-44 bg-[#F7FAFC] rounded-2xl mb-4 flex items-center justify-center p-6 relative overflow-hidden">
                         {product.discount > 0 && (
-                          <span className="absolute top-3 left-3 bg-[#0E5F3A] text-white text-xs font-black tracking-wider px-3 py-1 rounded-full z-10 shadow-sm">
+                          <span className="absolute top-3 left-3 bg-[#0D162B] text-white text-xs font-black tracking-wider px-3 py-1 rounded-full z-10 shadow-sm">
                             -{product.discount}%
                           </span>
                         )}
@@ -113,7 +113,7 @@ export default function Wishlist() {
 
                       <div className="flex items-end justify-between mt-auto pt-4">
                         <div>
-                          <div className="text-[#2FA84F] text-xl font-black">
+                          <div className="text-[#2E75B6] text-xl font-black">
                             LKR{" "}
                             {(
                               product.price *
@@ -128,7 +128,7 @@ export default function Wishlist() {
                         </div>
                         <button
                           onClick={(e) => handleAddToCart(e, product)}
-                          className="bg-black text-white p-3 rounded-xl hover:bg-[#2FA84F] hover:shadow-lg hover:shadow-[#2FA84F]/30 transition-all transform hover:-translate-y-1"
+                          className="bg-black text-white p-3 rounded-xl hover:bg-[#2E75B6] hover:shadow-lg hover:shadow-[#2E75B6]/30 transition-all transform transition-colors"
                         >
                           <ShoppingBag className="w-5 h-5" />
                         </button>

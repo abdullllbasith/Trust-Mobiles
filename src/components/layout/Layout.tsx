@@ -7,21 +7,20 @@ import Home from "@/pages/Home";
 
 export default function Layout() {
   const location = useLocation();
-  const isAdmin = location.pathname.startsWith('/admin');
-  const isHome = location.pathname === '/';
+  const isHome = location.pathname === "/";
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[#F7FAFC]">
       <Navbar />
       <main className="flex-1 flex flex-col relative">
-        <div style={{ display: isHome ? 'block' : 'none', width: '100%' }}>
+        <div style={{ display: isHome ? "block" : "none", width: "100%" }}>
           <Home />
         </div>
         {!isHome && <Outlet />}
       </main>
-      {!isAdmin && <Footer />}
+      <Footer />
       <Toaster position="top-center" richColors />
-      {!isAdmin && <FloatingChatIcon />}
+      <FloatingChatIcon />
     </div>
   );
 }

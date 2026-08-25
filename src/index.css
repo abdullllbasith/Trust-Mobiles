@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @plugin "tailwindcss-animate";
@@ -12,7 +12,7 @@
   --color-background: var(--bg-color);
   --color-foreground: hsl(var(--foreground));
 
-  --color-primary: #2FA84F;
+  --color-primary: #2E75B6;
   --color-primary-foreground: #FFFFFF;
 
   --color-secondary: hsl(var(--secondary));
@@ -38,7 +38,7 @@
   --radius-sm: calc(var(--radius) - 4px);
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
 
   --animate-marquee: marquee 20s linear infinite;
 }
@@ -49,56 +49,33 @@
 }
 
 :root {
-  --bg-color: #FAFCFB;
-  --text-primary: #121212;
-  --text-secondary: #555555;
-  --primary-green: #2FA84F;
-  --dark-green: #0E5F3A;
-  --light-green: #7ED957;
+  --bg-color: #F7FAFC;
+  --text-primary: #0D162B;
+  --text-secondary: #5A6577;
+  --brand-navy: #0D162B;
+  --brand-blue: #2E75B6;
+  --brand-mist: #DEEAF6;
 
-  --background: 140 14% 98%;
-  --foreground: 0 0% 10%;
+  --background: 210 33% 98%;
+  --foreground: 222 38% 11%;
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 10%;
+  --card-foreground: 222 38% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 10%;
-  --primary: 136 56% 42%;
+  --popover-foreground: 222 38% 11%;
+  --primary: 210 60% 45%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 220 14.3% 95.9%;
-  --secondary-foreground: 220.9 39.3% 11%;
-  --muted: 220 14.3% 95.9%;
-  --muted-foreground: 0 0% 33%;
-  --accent: 220 14.3% 95.9%;
-  --accent-foreground: 220.9 39.3% 11%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 38% 11%;
+  --muted: 210 33% 96%;
+  --muted-foreground: 215 14% 40%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 38% 11%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 136 56% 42%;
-  --radius: 1.5rem;
-}
-
-.dark {
-  --background: 224 71.4% 4.1%;
-  --foreground: 210 40% 98%;
-  --card: 224 71.4% 4.1%;
-  --card-foreground: 210 40% 98%;
-  --popover: 224 71.4% 4.1%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 140 56% 42%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 140 56% 42%;
-  --bg-color: #121212; /* Dark bg */
+  --border: 214 20% 90%;
+  --input: 214 20% 90%;
+  --ring: 210 60% 45%;
+  --radius: 1.25rem;
 }
 
 @layer base {
@@ -106,23 +83,22 @@
     @apply border-border;
   }
   body {
-    @apply bg-[var(--bg-color)] text-[var(--text-primary)] font-sans antialiased selection:bg-[#2FA84F] selection:text-white;
+    @apply bg-[var(--bg-color)] text-[var(--text-primary)] font-sans antialiased selection:bg-[#2E75B6] selection:text-white;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight text-[#111111];
+    @apply font-display tracking-tight text-[#0D162B];
   }
 }
 
 @layer utilities {
   .hide-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
-  
-  /* Custom Global Scrollbar */
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -131,24 +107,37 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(13, 22, 43, 0.15);
     border-radius: 10px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.3);
-  }
-  
-  .dark ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-  }
-  .dark ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(13, 22, 43, 0.3);
   }
 
   .glass-panel {
-    @apply bg-white/70 backdrop-blur-2xl border border-white/50 shadow-[0_8px_32px_0_rgba(0,0,0,0.04)];
+    @apply bg-white/80 backdrop-blur-2xl border border-[#0D162B]/[0.06] shadow-[0_8px_32px_0_rgba(13,22,43,0.04)];
   }
-  .dark .glass-panel {
-    @apply bg-[#1a1a1a]/70 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.2)];
+
+  .product-card {
+    @apply relative flex h-full flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-sm transition-all duration-300;
+  }
+  .product-card:hover {
+    @apply -translate-y-0.5 border-[#2E75B6]/25 shadow-[0_18px_40px_-16px_rgba(13,22,43,0.18)];
+  }
+
+  .surface-card {
+    @apply rounded-2xl border border-black/[0.06] bg-white shadow-sm;
+  }
+
+  .field-input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-[#0D162B] outline-none transition-shadow placeholder:font-normal placeholder:text-slate-400 focus:border-[#2E75B6] focus:ring-2 focus:ring-[#2E75B6]/20;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-[#0D162B] px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-[#2E75B6] hover:shadow-lg;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-[#0D162B]/15 bg-white px-5 py-2.5 text-sm font-semibold text-[#0D162B] transition-colors hover:border-[#2E75B6] hover:text-[#2E75B6];
   }
 }

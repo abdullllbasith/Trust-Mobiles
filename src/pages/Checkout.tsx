@@ -1,30 +1,32 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { MessageCircle } from "lucide-react";
+import { openWhatsAppCheckout } from "@/lib/whatsapp";
 
 export default function Checkout() {
   const { items, totalPrice, clearCart } = useCartStore();
-  const { token } = useAuthStore();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    phone: "",
     email: "",
     address: "",
     city: "",
-    country: "",
-    zipCode: "",
-    cardNumber: "",
-    expiryDate: "",
-    cvv: "",
+    note: "",
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const shipping = totalPrice() > 50 ? 0 : 10;
+  const grandTotal = totalPrice() + shipping;
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -36,28 +38,63 @@ export default function Checkout() {
       return;
     }
 
+    const phone = formData.phone.replace(/\D/g, "");
+    if (phone.length < 9) {
+      toast.error("Please enter a valid WhatsApp / mobile number");
+      return;
+    }
+
     setLoading(true);
     try {
+      const address = {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        phone: formData.phone.trim(),
+        email: formData.email.trim(),
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        note: formData.note.trim(),
+      };
+
       const response = await fetch(`/api/orders`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items,
-          totalPrice: totalPrice() + (totalPrice() > 50 ? 0 : 10),
-          address: formData,
+          totalPrice: grandTotal,
+          address,
+          channel: "whatsapp",
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Checkout failed");
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Could not save your order");
       }
 
-      toast.success("Order placed successfully!");
+      openWhatsAppCheckout(
+        {
+          firstName: address.firstName,
+          lastName: address.lastName,
+          phone: address.phone,
+          email: address.email,
+          address: address.address,
+          city: address.city,
+          note: address.note,
+        },
+        items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          discount: item.discount,
+        })),
+        grandTotal,
+      );
+
+      toast.success("Opening WhatsApp to complete your order");
       clearCart();
-      navigate("/dashboard");
+      navigate("/shop");
     } catch (error: any) {
       toast.error(error.message || "An error occurred during checkout");
     } finally {
@@ -65,14 +102,17 @@ export default function Checkout() {
     }
   };
 
+  const inputClass =
+    "w-full bg-white border border-[#0D162B]/10 rounded-xl px-4 py-3 outline-none focus:border-[#2E75B6] focus:ring-1 focus:ring-[#2E75B6] text-[#0D162B] text-sm md:text-base font-medium transition-all shadow-sm";
+
   if (items.length === 0) {
     return (
       <div className="flex-1 min-h-[calc(100vh-80px)] flex flex-col items-center justify-center">
         <h2 className="text-3xl font-display font-semibold mb-6">
-          Cannot checkout with an empty cart
+          Your bag is empty
         </h2>
         <button
-          className="bg-[#111] text-white px-8 py-3.5 rounded-full font-semibold hover:bg-[#2FA84F] transition-colors"
+          className="bg-[#0D162B] text-white px-8 py-3.5 rounded-full font-semibold hover:bg-[#2E75B6] transition-colors"
           onClick={() => navigate("/shop")}
         >
           Go to Shop
@@ -84,15 +124,18 @@ export default function Checkout() {
   return (
     <div className="flex-1 bg-[var(--bg-color)] py-6 md:py-12 min-h-[calc(100vh-80px)]">
       <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        <h1 className="text-3xl md:text-4xl font-display font-semibold text-[#111] mb-6 md:mb-8 tracking-tight">
-          Secure Checkout.
+        <h1 className="text-3xl md:text-4xl font-display font-semibold text-[#0D162B] mb-2 tracking-tight">
+          Checkout
         </h1>
+        <p className="text-[#5A6577] font-medium mb-6 md:mb-8">
+          No account needed. Confirm on WhatsApp and we will arrange delivery.
+        </p>
 
         <div className="flex flex-col lg:flex-row gap-6 md:gap-10 lg:items-start">
           <div className="w-full lg:w-2/3">
-            <div className="glass-panel bg-white/40 rounded-[2rem] shadow-sm border border-white/60 p-6 md:p-8 mb-6 md:mb-8">
-              <h2 className="text-xl md:text-2xl font-display font-semibold text-[#111] mb-6">
-                Shipping Information
+            <div className="glass-panel bg-white rounded-[2rem] shadow-sm p-6 md:p-8">
+              <h2 className="text-xl md:text-2xl font-display font-semibold text-[#0D162B] mb-6">
+                Delivery details
               </h2>
               <form
                 id="checkout-form"
@@ -101,10 +144,7 @@ export default function Checkout() {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="firstName"
-                      className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                    >
+                    <Label htmlFor="firstName" className="text-sm font-semibold text-[#5A6577] ml-1">
                       First Name
                     </Label>
                     <input
@@ -113,14 +153,11 @@ export default function Checkout() {
                       required
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all shadow-sm"
+                      className={inputClass}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="lastName"
-                      className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                    >
+                    <Label htmlFor="lastName" className="text-sm font-semibold text-[#5A6577] ml-1">
                       Last Name
                     </Label>
                     <input
@@ -129,32 +166,42 @@ export default function Checkout() {
                       required
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all shadow-sm"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-sm font-semibold text-[#5A6577] ml-1">
+                      WhatsApp / Mobile
+                    </Label>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      required
+                      placeholder="07X XXX XXXX"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-semibold text-[#5A6577] ml-1">
+                      Email (optional)
+                    </Label>
+                    <input
+                      id="email"
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={inputClass}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="email"
-                    className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                  >
-                    Email Address
-                  </Label>
-                  <input
-                    id="email"
-                    type="email"
-                    name="email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all shadow-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="address"
-                    className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                  >
+                  <Label htmlFor="address" className="text-sm font-semibold text-[#5A6577] ml-1">
                     Street Address
                   </Label>
                   <input
@@ -163,131 +210,42 @@ export default function Checkout() {
                     required
                     value={formData.address}
                     onChange={handleInputChange}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all shadow-sm"
+                    className={inputClass}
                   />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="city"
-                      className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                    >
-                      City
-                    </Label>
-                    <input
-                      id="city"
-                      name="city"
-                      required
-                      value={formData.city}
-                      onChange={handleInputChange}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all shadow-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="country"
-                      className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                    >
-                      Country
-                    </Label>
-                    <input
-                      id="country"
-                      name="country"
-                      required
-                      value={formData.country}
-                      onChange={handleInputChange}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all shadow-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="zipCode"
-                      className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                    >
-                      ZIP Code
-                    </Label>
-                    <input
-                      id="zipCode"
-                      name="zipCode"
-                      required
-                      value={formData.zipCode}
-                      onChange={handleInputChange}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all shadow-sm"
-                    />
-                  </div>
-                </div>
-              </form>
-            </div>
-
-            <div className="glass-panel bg-white/40 rounded-[2rem] shadow-sm border border-white/60 p-6 md:p-8">
-              <h2 className="text-xl md:text-2xl font-display font-semibold text-[#111] mb-6">
-                Payment Details
-              </h2>
-              <div className="space-y-4 md:space-y-6">
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="cardNumber"
-                    className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                  >
-                    Card Number
+                  <Label htmlFor="city" className="text-sm font-semibold text-[#5A6577] ml-1">
+                    City
                   </Label>
                   <input
-                    id="cardNumber"
-                    name="cardNumber"
-                    placeholder="0000 0000 0000 0000"
+                    id="city"
+                    name="city"
                     required
-                    value={formData.cardNumber}
+                    value={formData.city}
                     onChange={handleInputChange}
-                    form="checkout-form"
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all font-mono shadow-sm"
+                    className={inputClass}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4 md:gap-6">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="expiryDate"
-                      className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                    >
-                      Expiry Date
-                    </Label>
-                    <input
-                      id="expiryDate"
-                      name="expiryDate"
-                      placeholder="MM/YY"
-                      required
-                      value={formData.expiryDate}
-                      onChange={handleInputChange}
-                      form="checkout-form"
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all shadow-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="cvv"
-                      className="text-xs md:text-sm font-semibold text-gray-700 ml-1"
-                    >
-                      CVV
-                    </Label>
-                    <input
-                      id="cvv"
-                      type="password"
-                      name="cvv"
-                      placeholder="•••"
-                      required
-                      value={formData.cvv}
-                      onChange={handleInputChange}
-                      form="checkout-form"
-                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-black focus:ring-1 focus:ring-black text-[#111] text-sm md:text-base font-medium transition-all shadow-sm tracking-widest"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="note" className="text-sm font-semibold text-[#5A6577] ml-1">
+                    Order note (optional)
+                  </Label>
+                  <textarea
+                    id="note"
+                    name="note"
+                    rows={3}
+                    value={formData.note}
+                    onChange={handleInputChange}
+                    className={inputClass}
+                  />
                 </div>
-              </div>
+              </form>
             </div>
           </div>
 
           <div className="w-full lg:w-1/3 sticky top-24 md:top-32">
-            <div className="bg-[#121212] text-white rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden border border-white/10">
-              <div className="absolute top-[-20%] right-[-10%] w-48 h-48 md:w-64 md:h-64 bg-[#2FA84F] rounded-full mix-blend-screen filter blur-[100px] opacity-20 pointer-events-none"></div>
+            <div className="bg-[#0D162B] text-white rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-[-20%] right-[-10%] w-48 h-48 md:w-64 md:h-64 bg-[#2E75B6] rounded-full mix-blend-screen filter blur-[100px] opacity-30 pointer-events-none"></div>
 
               <h2 className="text-2xl md:text-3xl font-display font-semibold mb-6 md:mb-8 relative z-10">
                 Order Summary
@@ -318,8 +276,8 @@ export default function Checkout() {
                         Qty: {item.quantity}
                       </div>
                     </div>
-                    <div className="text-base font-semibold text-[#2FA84F]">
-                      LKR 
+                    <div className="text-base font-semibold text-[#DEEAF6]">
+                      LKR{" "}
                       {(
                         item.price *
                         (1 - item.discount / 100) *
@@ -341,31 +299,35 @@ export default function Checkout() {
                 </div>
                 <div className="flex justify-between text-sm md:text-base font-medium">
                   <span className="text-gray-400">Shipping</span>
-                  <span className="font-semibold text-[#2FA84F]">
-                    {totalPrice() > 50 ? "Free Delivery" : "LKR 10.00"}
+                  <span className="font-semibold text-[#DEEAF6]">
+                    {shipping === 0 ? "Free Delivery" : "LKR 10.00"}
                   </span>
                 </div>
               </div>
 
               <div className="h-px bg-white/10 w-full my-6 relative z-10"></div>
 
-              <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-2 md:gap-0 mb-8 relative z-10">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-2 mb-8 relative z-10">
                 <span className="font-semibold text-lg md:text-xl text-white">
                   Total
                 </span>
-                <span className="font-display font-semibold text-3xl md:text-5xl text-white tracking-tight break-all md:break-normal">
-                  LKR {(totalPrice() + (totalPrice() > 50 ? 0 : 10)).toFixed(2)}
+                <span className="font-display font-semibold text-3xl md:text-4xl text-white tracking-tight">
+                  LKR {grandTotal.toFixed(2)}
                 </span>
               </div>
 
               <button
                 type="submit"
                 form="checkout-form"
-                className="w-full bg-white hover:bg-[#2FA84F] hover:text-white text-[#111] h-14 md:h-16 rounded-full flex items-center justify-center gap-2 md:gap-3 font-semibold text-lg md:text-xl transition-all shadow-xl hover:-translate-y-1 transform relative z-10"
+                className="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white h-14 md:h-16 rounded-full flex items-center justify-center gap-2 md:gap-3 font-semibold text-lg transition-all shadow-xl hover:-translate-y-1 transform relative z-10"
                 disabled={loading}
               >
-                {loading ? "Processing..." : "Place Secure Order"}
+                <MessageCircle className="h-5 w-5" />
+                {loading ? "Opening WhatsApp..." : "Order via WhatsApp"}
               </button>
+              <p className="text-xs text-white/50 text-center mt-4 relative z-10">
+                We confirm price, stock, and delivery on WhatsApp. No card details are collected on this site.
+              </p>
             </div>
           </div>
         </div>

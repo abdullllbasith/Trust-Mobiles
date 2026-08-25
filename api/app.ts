@@ -32,7 +32,7 @@ function getAIClient(): { client: OpenAI; provider: AIProvider; model: string } 
         baseURL: 'https://openrouter.ai/api/v1',
         defaultHeaders: {
           'HTTP-Referer': env.APP_URL,
-          'X-Title': 'Matrix Mobiles',
+          'X-Title': 'Trust Mobile',
         },
       });
     } else {
@@ -51,11 +51,57 @@ function getAIClient(): { client: OpenAI; provider: AIProvider; model: string } 
 }
 
 const app = express();
-const SECRET_KEY = env.JWT_SECRET;
 
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+function getJwtSecret(): string {
+  if (env.JWT_SECRET) return env.JWT_SECRET;
+  if (env.isProduction) {
+    throw new Error('JWT_SECRET is required in production');
+  }
+  return 'dev-only-trust-mobile-jwt';
+}
+
+app.use(cors({
+  origin: env.isProduction ? env.APP_URL : true,
+  credentials: true,
+}));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+app.disable('x-powered-by');
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-XSS-Protection', '0');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+
+const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 8;
+
+function clientKey(req: express.Request) {
+  return `${req.ip || 'unknown'}:${String(req.body?.email || '').toLowerCase()}`;
+}
+
+function isLoginLocked(key: string) {
+  const row = loginAttempts.get(key);
+  if (!row) return false;
+  if (Date.now() > row.lockedUntil && row.count >= LOGIN_MAX_ATTEMPTS) {
+    loginAttempts.delete(key);
+    return false;
+  }
+  return Date.now() < row.lockedUntil && row.count >= LOGIN_MAX_ATTEMPTS;
+}
+
+function recordFailedLogin(key: string) {
+  const row = loginAttempts.get(key) || { count: 0, lockedUntil: 0 };
+  row.count += 1;
+  if (row.count >= LOGIN_MAX_ATTEMPTS) {
+    row.lockedUntil = Date.now() + LOGIN_WINDOW_MS;
+  }
+  loginAttempts.set(key, row);
+}
 
 // Mongoose Schemas
 const userSchema = new mongoose.Schema({
@@ -95,11 +141,12 @@ userSchema.set('toJSON', {
 });
 
 const orderSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   items: [mongoose.Schema.Types.Mixed],
   totalPrice: { type: Number, required: true },
   paymentStatus: { type: String, default: 'pending' },
   orderStatus: { type: String, default: 'processing' },
+  channel: { type: String, default: 'whatsapp' },
   address: mongoose.Schema.Types.Mixed
 }, { timestamps: true });
 
@@ -170,8 +217,19 @@ const Brand = mongoose.model('Brand', brandSchema);
 const seedData = async () => {
   const adminCount = await User.countDocuments({ role: 'admin' });
   if (adminCount === 0) {
-    const hash = await bcrypt.hash('admin123', 10);
-    await User.create({ name: 'Admin', email: 'admin@matrix.com', password: hash, role: 'admin' });
+    const password = env.ADMIN_PASSWORD;
+    if (!password) {
+      console.warn('No admin user seeded. Set ADMIN_PASSWORD (and optionally ADMIN_EMAIL) to create the first admin.');
+    } else {
+      const hash = await bcrypt.hash(password, 12);
+      await User.create({
+        name: 'Admin',
+        email: env.ADMIN_EMAIL.toLowerCase(),
+        password: hash,
+        role: 'admin',
+      });
+      console.log(`Seeded admin account for ${env.ADMIN_EMAIL}`);
+    }
   }
 
   const productCount = await Product.countDocuments();
@@ -231,7 +289,7 @@ const authenticateToken = (req: any, res: any, next: any) => {
     return res.status(401).json({ error: 'Authentication required. Please log in again.' });
   }
 
-  jwt.verify(token, SECRET_KEY, (err: any, user: any) => {
+  jwt.verify(token, getJwtSecret(), (err: any, user: any) => {
     if (err) {
       const expired = err?.name === 'TokenExpiredError';
       return res.status(401).json({
@@ -246,11 +304,13 @@ const authenticateToken = (req: any, res: any, next: any) => {
 };
 
 const isAdmin = (req: any, res: any, next: any) => {
-  if (!req.user || req.user.role !== 'admin') {
+  if (!req.user || req.user.role !== 'admin' || req.user.typ !== 'admin') {
     return res.status(403).json({ error: 'Admin access required for this action.' });
   }
   next();
 };
+
+const authenticateAdmin = [authenticateToken, isAdmin];
 
 function mongoErrorMessage(error: any, fallback: string) {
   if (error?.code === 11000) {
@@ -351,38 +411,60 @@ app.use('/api', async (req, res, next) => {
   }
 });
 
-// Auth
-app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password) return res.status(400).json({ error: 'All fields are required' });
-
-  try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ error: 'Email already exists' });
-
-    const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, password: hash, role: 'user' });
-    res.status(201).json({ id: user._id, name: user.name, email: user.email, role: user.role });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error during registration' });
-  }
+// Public customer registration/login disabled — shop is guest checkout only.
+app.post('/api/auth/register', (_req, res) => {
+  res.status(403).json({ error: 'Customer accounts are disabled. Checkout via WhatsApp instead.' });
 });
 
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
+app.post('/api/auth/login', (_req, res) => {
+  res.status(403).json({ error: 'Use /admin/login for staff access.' });
+});
+
+app.post('/api/admin/login', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const password = String(req.body?.password || '');
+  const key = clientKey(req);
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  if (isLoginLocked(key)) {
+    return res.status(429).json({ error: 'Too many failed attempts. Try again in 15 minutes.' });
+  }
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
-
-    const result = await bcrypt.compare(password, user.password as string);
-    if (result) {
-      const token = jwt.sign({ id: user._id, email: user.email, role: user.role, name: user.name }, SECRET_KEY, { expiresIn: '24h' });
-      res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
-    } else {
-      res.status(400).json({ error: 'Invalid credentials' });
+    const user = await User.findOne({ email, role: 'admin' });
+    if (!user) {
+      recordFailedLogin(key);
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
-  } catch (error) {
+
+    const ok = await bcrypt.compare(password, user.password as string);
+    if (!ok) {
+      recordFailedLogin(key);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    loginAttempts.delete(key);
+
+    const token = jwt.sign(
+      {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        typ: 'admin',
+      },
+      getJwtSecret(),
+      { expiresIn: '8h' },
+    );
+
+    res.json({
+      token,
+      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+    });
+  } catch {
     res.status(500).json({ error: 'Server error during login' });
   }
 });
@@ -407,7 +489,7 @@ app.get('/api/products/:id', async (req, res) => {
   }
 });
 
-app.post('/api/products', authenticateToken, isAdmin, async (req, res) => {
+app.post('/api/products', ...authenticateAdmin, async (req, res) => {
   const { name, brand, category, price, discount, stock, images, specs } = req.body;
 
   try {
@@ -433,7 +515,7 @@ app.post('/api/products', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/products/:id', authenticateToken, isAdmin, async (req, res) => {
+app.delete('/api/products/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const deleted = await Product.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Product not found' });
@@ -443,7 +525,7 @@ app.delete('/api/products/:id', authenticateToken, isAdmin, async (req, res) => 
   }
 });
 
-app.put('/api/products/:id', authenticateToken, isAdmin, async (req, res) => {
+app.put('/api/products/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const { name, brand, category, price, discount, stock, images, specs } = req.body;
     if (!String(name || '').trim() || !String(brand || '').trim() || !String(category || '').trim()) {
@@ -466,37 +548,53 @@ app.put('/api/products/:id', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-// Orders
-app.post('/api/orders', authenticateToken, async (req: any, res) => {
-  const { items, totalPrice, address } = req.body;
-  const userId = req.user.id;
+// Orders — guest WhatsApp checkout (no login)
+app.post('/api/orders', async (req, res) => {
+  const { items, totalPrice, address, channel } = req.body;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Cart items are required' });
+  }
+  if (totalPrice === undefined || Number.isNaN(Number(totalPrice))) {
+    return res.status(400).json({ error: 'A valid total is required' });
+  }
+  if (!address?.firstName || !address?.lastName || !address?.phone || !address?.address || !address?.city) {
+    return res.status(400).json({ error: 'Delivery name, phone, address, and city are required' });
+  }
 
   try {
     const newOrder = await Order.create({
-      userId, items, totalPrice, paymentStatus: 'pending', orderStatus: 'processing', address
+      items,
+      totalPrice: Number(totalPrice),
+      paymentStatus: 'pending',
+      orderStatus: 'processing',
+      channel: channel === 'whatsapp' ? 'whatsapp' : 'whatsapp',
+      address: {
+        firstName: String(address.firstName).trim(),
+        lastName: String(address.lastName).trim(),
+        phone: String(address.phone).trim(),
+        email: address.email ? String(address.email).trim() : '',
+        address: String(address.address).trim(),
+        city: String(address.city).trim(),
+        note: address.note ? String(address.note).trim() : '',
+      },
     });
     res.status(201).json({ id: newOrder._id, success: true });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to place order' });
   }
 });
 
-app.get('/api/orders', authenticateToken, async (req: any, res) => {
-  const userId = req.user.id;
-
+app.get('/api/orders', ...authenticateAdmin, async (_req, res) => {
   try {
-    let query = {};
-    if (req.user.role !== 'admin') {
-      query = { userId };
-    }
-    const orders = await Order.find(query).sort({ createdAt: -1 });
+    const orders = await Order.find().sort({ createdAt: -1 });
     res.json(orders);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
 });
 
-app.put('/api/orders/:id', authenticateToken, isAdmin, async (req, res) => {
+app.put('/api/orders/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const { orderStatus, paymentStatus } = req.body;
     const updated = await Order.findByIdAndUpdate(req.params.id, {
@@ -510,7 +608,7 @@ app.put('/api/orders/:id', authenticateToken, isAdmin, async (req, res) => {
 });
 
 // Users
-app.get('/api/users', authenticateToken, isAdmin, async (req, res) => {
+app.get('/api/users', ...authenticateAdmin, async (req, res) => {
   try {
     const users = await User.find().select('-password').sort({ createdAt: -1 });
     res.json(users);
@@ -519,7 +617,7 @@ app.get('/api/users', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/users/:id', authenticateToken, isAdmin, async (req, res) => {
+app.put('/api/users/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const { name, email, role } = req.body;
     const updated = await User.findByIdAndUpdate(req.params.id, {
@@ -532,7 +630,7 @@ app.put('/api/users/:id', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/users/:id', authenticateToken, isAdmin, async (req: any, res) => {
+app.delete('/api/users/:id', ...authenticateAdmin, async (req: any, res) => {
   try {
     const target = await User.findById(req.params.id);
     if (!target) return res.status(404).json({ error: 'User not found' });
@@ -559,7 +657,7 @@ app.get('/api/ads', async (req, res) => {
   }
 });
 
-app.post('/api/ads', authenticateToken, isAdmin, async (req, res) => {
+app.post('/api/ads', ...authenticateAdmin, async (req, res) => {
   try {
     const title = String(req.body?.title || '').trim();
     const image = String(req.body?.image || '').trim();
@@ -580,7 +678,7 @@ app.post('/api/ads', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/ads/:id', authenticateToken, isAdmin, async (req, res) => {
+app.put('/api/ads/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const update: Record<string, unknown> = { ...req.body };
     if (update.title !== undefined) update.title = String(update.title).trim();
@@ -593,7 +691,7 @@ app.put('/api/ads/:id', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/ads/:id', authenticateToken, isAdmin, async (req, res) => {
+app.delete('/api/ads/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const deletedAd = await Advertisement.findByIdAndDelete(req.params.id);
     if (!deletedAd) return res.status(404).json({ error: 'Ad not found' });
@@ -613,7 +711,7 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
-app.post('/api/categories', authenticateToken, isAdmin, async (req, res) => {
+app.post('/api/categories', ...authenticateAdmin, async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'Category name is required' });
@@ -624,7 +722,7 @@ app.post('/api/categories', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/categories/:id', authenticateToken, isAdmin, async (req, res) => {
+app.delete('/api/categories/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const deleted = await Category.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Category not found' });
@@ -644,7 +742,7 @@ app.get('/api/brands', async (req, res) => {
   }
 });
 
-app.post('/api/brands', authenticateToken, isAdmin, async (req, res) => {
+app.post('/api/brands', ...authenticateAdmin, async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
     const categories = Array.isArray(req.body?.categories)
@@ -661,7 +759,7 @@ app.post('/api/brands', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/brands/:id', authenticateToken, isAdmin, async (req, res) => {
+app.put('/api/brands/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const update: Record<string, unknown> = {};
     if (req.body?.name !== undefined) update.name = String(req.body.name).trim();
@@ -678,7 +776,7 @@ app.put('/api/brands/:id', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/brands/:id', authenticateToken, isAdmin, async (req, res) => {
+app.delete('/api/brands/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const deleted = await Brand.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Brand not found' });
@@ -782,7 +880,7 @@ async function localShoppingAssistant(messages: any[]) {
       message: {
         role: 'assistant',
         content:
-          "Hi! I'm your Matrix Mobiles shopping assistant. Ask me about phones, brands, prices, or stock — for example: \"Do you have iPhone 15?\" or \"Show Samsung phones\".",
+          "Hi! I'm your Trust Mobile shopping assistant. Ask me about phones, brands, prices, or stock — for example: \"Do you have iPhone 15?\" or \"Show Samsung phones\".",
       },
       action: null,
     };
@@ -804,7 +902,7 @@ async function localShoppingAssistant(messages: any[]) {
         role: 'assistant',
         content: formatProductListMarkdown(
           list,
-          'Here are the phones currently in stock at Matrix Mobiles:',
+          'Here are the phones currently in stock at Trust Mobile:',
         ),
       },
       action: null,
@@ -1174,10 +1272,10 @@ app.post('/api/chat', async (req, res) => {
 
     const systemPrompt = {
       role: 'system',
-      content: `You are a helpful, expert AI shopping assistant for Matrix Mobiles (Sri Lanka). You help users find tech devices, compare specs, and recommend products from OUR store inventory only.
+      content: `You are a helpful, expert AI shopping assistant for Trust Mobile (Sri Lanka). You help users find tech devices, compare specs, and recommend products from OUR store inventory only.
 
 STRICT RULES:
-1) Only answer questions about Matrix Mobiles, phones, tablets, accessories, store policies, or shopping.
+1) Only answer questions about Trust Mobile, phones, tablets, accessories, store policies, or shopping.
 2) Use ONLY the LIVE INVENTORY CONTEXT below — never invent products, prices, or stock.
 3) Keep answers concise, friendly, and clear. Prices are in LKR.
 4) FORMATTING (required): Use markdown with real line breaks. For multiple products use a numbered list like:

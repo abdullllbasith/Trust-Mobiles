@@ -1,6 +1,6 @@
 {
-  "name": "Matrix Mobiles",
-  "description": "A full-stack e-commerce platform for Matrix Mobiles, featuring product listings, cart, user dashboards, and admin panels.",
+  "name": "Trust Mobile",
+  "description": "Clean white-theme e-commerce for Trust Mobile phones and accessories, with WhatsApp checkout and a separate admin console.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

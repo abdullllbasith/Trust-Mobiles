@@ -73,9 +73,9 @@ export default function AdminDashboard() {
       <div className="w-full max-w-[1800px] mx-auto px-4 md:px-8 lg:px-12">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-gray-900 mb-2">Admin Command Center</h1>
+            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-[#0D162B] mb-2">Trust Mobile Admin</h1>
             <p className="text-gray-500 text-base md:text-lg">
-              Manage your store, products, orders, and promotions seamlessly.
+              Manage inventory, WhatsApp orders, and promotions.
             </p>
           </div>
         </div>

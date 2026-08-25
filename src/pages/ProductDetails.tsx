@@ -88,7 +88,7 @@ export default function ProductDetails() {
     return (
       <div className="container mx-auto px-4 py-12 max-w-7xl animate-pulse">
         <div className="flex flex-col md:flex-row gap-12">
-          <div className="w-full md:w-1/2 aspect-square bg-gray-100 rounded-[3rem]"></div>
+          <div className="w-full md:w-1/2 aspect-square bg-gray-100 rounded-xl"></div>
           <div className="w-full md:w-1/2 space-y-6">
             <div className="h-4 bg-gray-100 w-24 rounded"></div>
             <div className="h-12 bg-gray-100 w-3/4 rounded-lg"></div>
@@ -121,7 +121,7 @@ export default function ProductDetails() {
 
   return (
     <div className="flex-1 bg-[var(--bg-color)] min-h-screen">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-4 md:py-6">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-8 py-4 md:py-6">
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-sm md:text-base font-semibold text-gray-500 hover:text-[#111] transition-colors mb-4 md:mb-6 w-fit group"
@@ -132,10 +132,10 @@ export default function ProductDetails() {
           Back
         </button>
 
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-12 bg-white rounded-[2rem] lg:rounded-[3rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-black/[0.03] p-4 sm:p-6 lg:p-10 overflow-hidden relative">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-12 bg-white rounded-xl lg:rounded-xl shadow-sm border border-black/[0.03] p-4 sm:p-6 lg:p-10 overflow-hidden relative">
           {/* Images Gallery */}
           <div className="w-full lg:w-1/2 flex flex-col gap-4 lg:gap-6 relative z-10">
-            <div className="aspect-square bg-[#F5F7F6] rounded-[1.5rem] lg:rounded-[2.5rem] relative overflow-hidden group">
+            <div className="aspect-square bg-[#F7FAFC] rounded-xl lg:rounded-xl relative overflow-hidden group">
               {product.discount > 0 && (
                 <div className="absolute top-4 left-4 lg:top-8 lg:left-8 z-20 bg-[#111] text-white text-[10px] lg:text-xs font-semibold tracking-wider px-3 lg:px-4 py-1.5 lg:py-2 rounded-full shadow-sm border border-white/10">
                   {product.discount}% OFF
@@ -180,7 +180,7 @@ export default function ProductDetails() {
                   <button
                     key={idx}
                     onClick={() => setActiveImage(idx)}
-                    className={`w-20 h-20 lg:w-28 lg:h-28 rounded-xl lg:rounded-2xl border-2 flex-shrink-0 bg-[#F5F7F6] flex items-center justify-center overflow-hidden transition-all ${activeImage === idx ? "border-[#111] shadow-md ring-4 ring-[#111]/10" : "border-transparent hover:border-black/10"}`}
+                    className={`w-20 h-20 lg:w-28 lg:h-28 rounded-xl lg:rounded-2xl border-2 flex-shrink-0 bg-[#F7FAFC] flex items-center justify-center overflow-hidden transition-all ${activeImage === idx ? "border-[#111] shadow-md ring-4 ring-[#111]/10" : "border-transparent hover:border-black/10"}`}
                   >
                     <img
                       src={img}
@@ -210,7 +210,7 @@ export default function ProductDetails() {
               </button>
             </div>
 
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-display font-semibold tracking-tight text-[#111] mb-3 md:mb-5 leading-[1.1]">
+            <h1 className="text-2xl md:text-[1.75rem] lg:text-6xl font-display font-semibold tracking-tight text-[#111] mb-3 md:mb-5 leading-[1.1]">
               {product.name}
             </h1>
 
@@ -228,19 +228,19 @@ export default function ProductDetails() {
             </div>
 
             <div className="flex flex-col items-start gap-1 md:gap-2 mb-6 md:mb-10">
-              <span className="text-4xl md:text-5xl font-display font-semibold text-[#111]">
-                LKR {price.toFixed(2)}
+              <span className="text-2xl md:text-3xl font-display font-semibold text-[#111]">
+                LKR {Math.round(price).toLocaleString("en-US")}
               </span>
               {product.discount > 0 && (
-                <span className="text-xl md:text-2xl font-medium text-gray-400 line-through">
-                  LKR {product.price.toFixed(2)}
+                <span className="text-base font-medium text-gray-400 line-through">
+                  LKR {Math.round(product.price).toLocaleString("en-US")}
                 </span>
               )}
             </div>
 
             <div className="flex items-center gap-2 md:gap-3 mb-6 md:mb-10 text-xs md:text-sm flex-wrap">
               <div
-                className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-semibold ${product.stock > 0 ? "bg-[#2FA84F]/10 text-[#0E5F3A]" : "bg-red-50 text-red-600"}`}
+                className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-full font-semibold ${product.stock > 0 ? "bg-[#2E75B6]/10 text-[#0D162B]" : "bg-red-50 text-red-600"}`}
               >
                 {product.stock > 0 ? (
                   <>
@@ -260,7 +260,7 @@ export default function ProductDetails() {
 
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mb-8 md:mb-12">
               <button
-                className={`flex-1 h-14 md:h-16 rounded-full text-base md:text-lg font-semibold transition-all flex items-center justify-center gap-2 md:gap-3 ${product.stock > 0 ? "bg-[#111] text-white hover:bg-[#2FA84F] hover:shadow-xl hover:-translate-y-1" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
+                className={`flex-1 h-12 md:h-14 rounded-xl text-base md:text-lg font-semibold transition-all flex items-center justify-center gap-2 md:gap-3 ${product.stock > 0 ? "bg-[#111] text-white hover:bg-[#2E75B6] hover:shadow-xl transition-colors" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
                 onClick={handleAddToCart}
                 disabled={product.stock <= 0}
               >
@@ -319,7 +319,7 @@ export default function ProductDetails() {
 
             {/* Specifications */}
             {specs && Object.keys(specs).length > 0 && (
-              <div className="bg-gray-50/50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-black/5">
+              <div className="bg-gray-50/50 p-6 md:p-8 rounded-xl md:rounded-xl border border-black/5">
                 <h3 className="text-lg md:text-xl font-display font-semibold text-[#111] mb-4 md:mb-6">
                   Technical Specifications
                 </h3>
@@ -358,7 +358,7 @@ export default function ProductDetails() {
                 return (
                   <motion.div
                     key={relatedProduct.id}
-                    className="min-w-[220px] md:min-w-[280px] w-[220px] md:w-[280px] snap-start bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-black/[0.03] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] hover:border-black/5 transition-all duration-300 h-[360px] md:h-[460px] flex flex-col group relative overflow-hidden flex-shrink-0"
+                    className="min-w-[220px] md:min-w-[280px] w-[220px] md:w-[280px] snap-start bg-white rounded-xl md:rounded-xl shadow-sm border border-black/[0.03] hover:shadow-md hover:border-black/5 transition-all duration-300 h-[320px] md:h-[360px] flex flex-col group relative overflow-hidden flex-shrink-0"
                     whileHover={{ y: -5 }}
                   >
                     {/* Action Icons */}
@@ -392,7 +392,7 @@ export default function ProductDetails() {
 
                     <Link to={`/product/${relatedProduct.id}`} onClick={() => window.scrollTo(0, 0)} className="flex-1 flex flex-col h-full">
                       {/* Edge-to-edge Image Container */}
-                      <div className="w-full h-44 md:h-64 bg-[#F5F7F6] relative overflow-hidden group-hover:bg-[#F0F2F1] transition-colors">
+                      <div className="w-full h-36 md:h-44 bg-[#F7FAFC] relative overflow-hidden group-hover:bg-[#F0F2F1] transition-colors">
                         <img
                           src={rpImages[0]}
                           alt={relatedProduct.name}
@@ -401,11 +401,11 @@ export default function ProductDetails() {
                       </div>
 
                       {/* Content Area */}
-                      <div className="p-4 md:p-6 flex-1 flex flex-col">
+                      <div className="p-3.5 md:p-4 flex-1 flex flex-col">
                         <div className="text-[9px] md:text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
                           {relatedProduct.brand}
                         </div>
-                        <h4 className="font-display font-semibold text-sm md:text-lg mt-0.5 md:mt-1 line-clamp-1 text-[#111]">
+                        <h4 className="font-semibold text-sm md:text-[15px] mt-0.5 md:mt-1 line-clamp-1 text-[#111]">
                           {relatedProduct.name}
                         </h4>
 
@@ -432,7 +432,7 @@ export default function ProductDetails() {
                               addItem(relatedProduct);
                               toast.success(`${relatedProduct.name} added to cart`);
                             }}
-                            className="bg-[#111] text-white p-2.5 md:p-3.5 rounded-full hover:bg-[#2FA84F] hover:-translate-y-1 transition-all shadow-md"
+                            className="bg-[#111] text-white p-2.5 md:p-3.5 rounded-full hover:bg-[#2E75B6] transition-colors transition-all shadow-md"
                           >
                             <ShoppingBag className="w-3 h-3 md:w-4 md:h-4" />
                           </button>

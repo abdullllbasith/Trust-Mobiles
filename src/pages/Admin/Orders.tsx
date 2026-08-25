@@ -89,7 +89,7 @@ export default function AdminOrders({ orders = [], loading, fetchData }: any) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Order ID</TableHead>
-                  <TableHead>Customer ID</TableHead>
+                  <TableHead>Customer</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -102,8 +102,15 @@ export default function AdminOrders({ orders = [], loading, fetchData }: any) {
                     <TableCell className="font-medium">
                       {shortId(order.id)}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {shortId(order.userId)}
+                    <TableCell className="text-sm">
+                      <div className="font-medium text-[#0D162B]">
+                        {[order.address?.firstName, order.address?.lastName]
+                          .filter(Boolean)
+                          .join(" ") || "Guest"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {order.address?.phone || "—"}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {order.createdAt

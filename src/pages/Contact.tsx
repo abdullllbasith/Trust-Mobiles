@@ -58,7 +58,7 @@ export default function Contact() {
                 </p>
                 <a
                   href="tel:+18001234567"
-                  className="font-semibold text-[#111] hover:text-[#2FA84F] transition-colors"
+                  className="font-semibold text-[#111] hover:text-[#2E75B6] transition-colors"
                 >
                   +1 (800) 123-4567
                 </a>
@@ -77,10 +77,10 @@ export default function Contact() {
                   We'll reply within 24 hours.
                 </p>
                 <a
-                  href="mailto:support@matrixmobiles.com"
-                  className="font-semibold text-[#111] hover:text-[#2FA84F] transition-colors"
+                  href="mailto:hello@trustmobile.lk"
+                  className="font-semibold text-[#111] hover:text-[#2E75B6] transition-colors"
                 >
-                  support@matrixmobiles.com
+                  hello@trustmobile.lk
                 </a>
               </div>
             </div>
@@ -179,7 +179,7 @@ export default function Contact() {
               <button
                 disabled={loading}
                 type="submit"
-                className="bg-[#111] text-white hover:bg-[#2FA84F] py-4 px-8 rounded-full font-semibold transition-all shadow-md transform hover:-translate-y-1 flex items-center justify-center gap-2"
+                className="bg-[#111] text-white hover:bg-[#2E75B6] py-4 px-8 rounded-full font-semibold transition-all shadow-md transform hover:-translate-y-1 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   "Sending..."

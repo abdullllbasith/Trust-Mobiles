@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function Phone3D() {
   return (
-    <div className="w-full h-full absolute inset-0 z-20 hover:scale-105 transition-transform duration-700 pointer-events-auto overflow-hidden rounded-[3rem]">
+    <div className="w-full h-full absolute inset-0 z-20 hover:scale-105 transition-transform duration-700 pointer-events-auto overflow-hidden rounded-xl">
       <div className="sketchfab-embed-wrapper w-full h-full relative">
         <iframe 
           title="iPhone 17 Pro" 

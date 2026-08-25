@@ -39,7 +39,10 @@ function parseModelList(raw: string | undefined, fallback: string[]): string[] {
 
 export const env = {
   MONGODB_URI: readEnv('MONGODB_URI'),
-  JWT_SECRET: readEnv('JWT_SECRET') ?? 'matrix-mobiles-super-secret-key',
+  JWT_SECRET: readEnv('JWT_SECRET'),
+  ADMIN_EMAIL: readEnv('ADMIN_EMAIL') ?? 'admin@trustmobile.local',
+  ADMIN_PASSWORD: readEnv('ADMIN_PASSWORD') ?? (process.env.NODE_ENV === 'production' || readEnv('VERCEL') === '1' ? undefined : 'TrustAdmin!2026'),
+  WHATSAPP_NUMBER: (readEnv('WHATSAPP_NUMBER') ?? '94770000000').replace(/\D/g, ''),
   /** OpenRouter key — for free Nvidia model: nvidia/nemotron-3-ultra-550b-a55b:free */
   OPENROUTER_API_KEY: readEnv('OPENROUTER_API_KEY'),
   /** NVIDIA NGC / build.nvidia.com key — for integrate.api.nvidia.com */
@@ -104,7 +107,7 @@ export function resolveChatModelChain(provider: AIProvider): string[] {
   return chain.length > 0 ? chain : [primary];
 }
 
-const REQUIRED_ON_VERCEL = ['MONGODB_URI', 'JWT_SECRET'] as const;
+const REQUIRED_ON_VERCEL = ['MONGODB_URI', 'JWT_SECRET', 'ADMIN_PASSWORD'] as const;
 
 export function getMissingVercelEnvVars(): string[] {
   if (!env.isVercel) return [];

@@ -28,7 +28,7 @@ export const useAuthStore = create<AuthState>()(
       isAdmin: () => get().user?.role === "admin",
     }),
     {
-      name: "matrix-auth-storage",
+      name: "trust-mobile-admin-auth",
     },
   ),
 );

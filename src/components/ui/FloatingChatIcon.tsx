@@ -122,11 +122,11 @@ export function FloatingChatIcon() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 md:bottom-10 md:right-10 w-14 h-14 md:w-16 md:h-16 bg-[#111] hover:bg-[#2FA84F] text-white rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] transition-all duration-300 z-50 ${
+        className={`fixed bottom-6 right-6 md:bottom-10 md:right-10 w-11 h-11 md:w-12 md:h-12 bg-[#111] hover:bg-[#2E75B6] text-white rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] transition-all duration-300 z-50 ${
           isOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"
         }`}
       >
-        <MessageCircle className="w-6 h-6 md:w-7 md:h-7" />
+        <MessageCircle className="w-5 h-5" />
       </button>
 
       {/* Chat Box Overlay */}
@@ -148,7 +148,7 @@ export function FloatingChatIcon() {
                 <div>
                   <h3 className="font-display font-semibold text-white">AI Assistant</h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="w-1.5 h-1.5 bg-[#2FA84F] rounded-full animate-pulse"></span>
+                    <span className="w-1.5 h-1.5 bg-[#2E75B6] rounded-full animate-pulse"></span>
                     <span className="text-white/60 text-xs">Online</span>
                   </div>
                 </div>
@@ -162,7 +162,7 @@ export function FloatingChatIcon() {
             </div>
 
             {/* Chat Body */}
-            <div className="flex-1 bg-[#F5F7F6] p-6 overflow-y-auto">
+            <div className="flex-1 bg-[#F7FAFC] p-6 overflow-y-auto">
               <div className="flex flex-col gap-4">
                 {messages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -202,12 +202,12 @@ export function FloatingChatIcon() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="Ask me anything..."
-                  className="flex-1 bg-[#F5F7F6] border border-transparent rounded-full px-5 py-3 text-base focus:outline-none focus:border-black/10 focus:bg-white transition-colors"
+                  className="flex-1 bg-[#F7FAFC] border border-transparent rounded-full px-5 py-3 text-base focus:outline-none focus:border-black/10 focus:bg-white transition-colors"
                 />
                 <button 
                   onClick={handleSend}
                   disabled={isLoading}
-                  className="w-11 h-11 bg-[#111] hover:bg-[#2FA84F] disabled:opacity-50 text-white rounded-full flex items-center justify-center transition-colors flex-shrink-0"
+                  className="w-11 h-11 bg-[#111] hover:bg-[#2E75B6] disabled:opacity-50 text-white rounded-full flex items-center justify-center transition-colors flex-shrink-0"
                 >
                   <span className="transform rotate-45 -ml-0.5 mt-0.5">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

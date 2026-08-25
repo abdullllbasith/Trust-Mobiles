@@ -75,8 +75,10 @@ export async function apiFetch<T = unknown>(
 
   if (res.status === 401) {
     const message = await readErrorMessage(res, fallbackError);
-    // Invalid/expired session — clear local auth so ProtectedRoute redirects
     useAuthStore.getState().logout();
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
+      window.location.assign("/admin/login");
+    }
     throw new ApiError(message, res.status);
   }
 
