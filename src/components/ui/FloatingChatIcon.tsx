@@ -99,7 +99,13 @@ export function FloatingChatIcon() {
         setMessages(prev => [...prev, { role: 'assistant', content }]);
       }
       
-      if (data.action && data.action.type === 'navigate') {
+      if (
+        data.action &&
+        data.action.type === 'navigate' &&
+        typeof data.action.url === 'string' &&
+        data.action.url.startsWith('/product/') &&
+        userMsg.content.trim().length >= 3
+      ) {
         setTimeout(() => {
           navigate(data.action.url);
           setIsOpen(false);

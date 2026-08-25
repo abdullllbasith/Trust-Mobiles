@@ -925,9 +925,8 @@ async function searchProductsForChat(query: string) {
 async function localShoppingAssistant(messages: any[]) {
   const lastUser = [...(messages || [])].reverse().find((m) => m.role === 'user');
   const text = String(lastUser?.content || '').trim();
-  const lower = text.toLowerCase();
 
-  if (!text || /^(hi|hello|hey|good\s*(morning|afternoon|evening)|yo)\b/.test(lower)) {
+  if (!text || isGreeting(text)) {
     return {
       message: {
         role: 'assistant',
@@ -1090,7 +1089,13 @@ async function createCompletionWithFallback(options: {
 }
 
 function isGreeting(text: string) {
-  return /^(hi|hello|hey|good\s*(morning|afternoon|evening)|yo|thanks|thank you|ok|okay)\b/i.test(text.trim());
+  const t = text.trim();
+  if (!t) return true;
+  // Short fillers / single letters should never trigger product navigation
+  if (t.length <= 2) return true;
+  return /^(hi+|hello|hey+|good\s*(morning|afternoon|evening)|yo|sup|thanks|thank you|thx|ok|okay|k+|hmm+|h+|yes|no|yep|nope|bye|cool|nice)\b[!?.]*$/i.test(
+    t,
+  );
 }
 
 const SEARCH_STOPWORDS = new Set([
@@ -1108,6 +1113,29 @@ const CATEGORY_SEARCH_TOKENS = new Set([
   'accessory', 'accessories', 'tablet', 'tablets', 'device', 'devices',
   'product', 'products', 'item', 'items', 'inventory', 'catalog', 'model', 'models',
 ]);
+
+/** User clearly wants to open / buy a specific product */
+function hasProductIntent(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  if (lower.length < 3) return false;
+
+  // Explicit product names / brands / models (letters+digits like iphone15, s24)
+  const hasModelSignal =
+    /\b(iphone|ipad|airpods|pixel|galaxy|samsung|apple|google|xiaomi|sony|oneplus|nothing|macbook|watch)\b/i.test(
+      lower,
+    ) || /\b[a-z]*\d+[a-z0-9]*\b/i.test(lower); // e.g. 15, s24, a17
+
+  const hasIntentVerb =
+    /\b(have|got|show|find|search|buy|price|cost|stock|available|open|details?|specs?|about|looking)\b/i.test(
+      lower,
+    );
+
+  // "iphone 15" alone is enough; "do you have ..." with a model signal is enough
+  if (hasModelSignal) return true;
+  // Longer queries with shopping verbs but no model — still allow matching, navigation gated separately
+  if (hasIntentVerb && lower.length >= 8) return true;
+  return false;
+}
 
 function isBrowseInventoryQuery(text: string): boolean {
   const lower = text.toLowerCase().trim();
@@ -1137,7 +1165,8 @@ function tokenizeSearchQuery(text: string): string[] {
     .replace(/[^\w\s+]/g, ' ')
     .split(/\s+/)
     .map((t) => t.trim())
-    .filter((t) => t.length > 0 && !SEARCH_STOPWORDS.has(t));
+    // Ignore 1–2 letter noise tokens ("h", "ok") that substring-match inside product names
+    .filter((t) => t.length >= 3 && !SEARCH_STOPWORDS.has(t));
 }
 
 /** Soften wall-of-text model replies into readable line breaks (no product hardcoding). */
@@ -1187,9 +1216,9 @@ function scoreProductAgainstTokens(product: { name?: string; brand?: string; cat
   score += matchedTokens * 5;
   score += nameOrBrandMatches * 8;
 
-  // Strong bonus when the full cleaned query phrase appears in the name
+  // Strong bonus only for multi-token / meaningful phrases (avoid "h" ⊂ "iphone")
   const phrase = tokens.join(' ');
-  if (phrase && name.includes(phrase)) score += 50;
+  if (phrase.length >= 4 && name.includes(phrase)) score += 50;
 
   return { score, matchedTokens, nameOrBrandMatches };
 }
@@ -1197,10 +1226,14 @@ function scoreProductAgainstTokens(product: { name?: string; brand?: string; cat
 /** Only auto-open a page when the user asked for a specific product with a name/brand match. */
 function shouldNavigateToProduct(userText: string, product: { name?: string; brand?: string; category?: string } | null | undefined) {
   if (!product || isBrowseInventoryQuery(userText) || isGreeting(userText)) return false;
+  if (!hasProductIntent(userText)) return false;
+
   const tokens = tokenizeSearchQuery(userText).filter((t) => !CATEGORY_SEARCH_TOKENS.has(t));
   if (tokens.length === 0) return false;
-  const { score, nameOrBrandMatches } = scoreProductAgainstTokens(product, tokens);
-  return nameOrBrandMatches >= 1 && score >= 20;
+
+  const { score, nameOrBrandMatches, matchedTokens } = scoreProductAgainstTokens(product, tokens);
+  // Require a real name/brand hit and a strong enough score — never navigate on weak substring noise
+  return nameOrBrandMatches >= 1 && matchedTokens >= 1 && score >= 25;
 }
 
 async function findProductsForQuery(rawQuery: string) {
@@ -1407,11 +1440,17 @@ ${inventoryContext || 'No products loaded.'}`,
         if (toolCall.type === 'function') {
           const args = JSON.parse(toolCall.function.arguments || '{}');
           const result = await searchProductsForChat(args.searchQuery || userText);
-          // Never navigate on general catalog questions; otherwise trust tool result
-          if (browseMode) {
+          // Never navigate on greetings / browse / weak user text — only when the USER named a product
+          if (browseMode || isGreeting(userText) || !hasProductIntent(userText)) {
             actionPayload = null;
           } else if (result.action) {
-            actionPayload = result.action;
+            // Re-validate against the original user message, not the model's tool query
+            const toolProducts = await findProductsForQuery(userText);
+            const top = toolProducts[0];
+            actionPayload =
+              top && shouldNavigateToProduct(userText, top as any)
+                ? { type: 'navigate', url: `/product/${(top as any)._id}` }
+                : null;
           } else {
             actionPayload = null;
           }
