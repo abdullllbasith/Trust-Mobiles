@@ -12,8 +12,8 @@
   --color-background: var(--bg-color);
   --color-foreground: hsl(var(--foreground));
 
-  --color-primary: #2E75B6;
-  --color-primary-foreground: #FFFFFF;
+  --color-primary: #C5A059;
+  --color-primary-foreground: #1C1C1C;
 
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
@@ -49,32 +49,38 @@
 }
 
 :root {
-  --bg-color: #F7FAFC;
-  --text-primary: #0D162B;
-  --text-secondary: #5A6577;
-  --brand-navy: #0D162B;
-  --brand-blue: #2E75B6;
-  --brand-mist: #DEEAF6;
+  /* Trust Mobile — charcoal + gold (from brand logo) */
+  --bg-color: #F8F6F1;
+  --text-primary: #1C1C1C;
+  --text-secondary: #5C574F;
+  --brand-charcoal: #1C1C1C;
+  --brand-gold: #C5A059;
+  --brand-gold-bright: #D4AF37;
+  --brand-gold-deep: #996515;
+  --brand-mist: #F3EBD8;
+  /* aliases kept for any leftover references */
+  --brand-navy: #1C1C1C;
+  --brand-blue: #C5A059;
 
-  --background: 210 33% 98%;
-  --foreground: 222 38% 11%;
+  --background: 40 20% 96%;
+  --foreground: 0 0% 11%;
   --card: 0 0% 100%;
-  --card-foreground: 222 38% 11%;
+  --card-foreground: 0 0% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 38% 11%;
-  --primary: 210 60% 45%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 38% 11%;
-  --muted: 210 33% 96%;
-  --muted-foreground: 215 14% 40%;
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 38% 11%;
+  --popover-foreground: 0 0% 11%;
+  --primary: 40 45% 56%;
+  --primary-foreground: 0 0% 11%;
+  --secondary: 40 25% 94%;
+  --secondary-foreground: 0 0% 11%;
+  --muted: 40 15% 94%;
+  --muted-foreground: 30 6% 35%;
+  --accent: 40 30% 93%;
+  --accent-foreground: 0 0% 11%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
-  --border: 214 20% 90%;
-  --input: 214 20% 90%;
-  --ring: 210 60% 45%;
+  --border: 40 12% 88%;
+  --input: 40 12% 88%;
+  --ring: 40 45% 56%;
   --radius: 1.25rem;
 }
 
@@ -83,10 +89,10 @@
     @apply border-border;
   }
   body {
-    @apply bg-[var(--bg-color)] text-[var(--text-primary)] font-sans antialiased selection:bg-[#2E75B6] selection:text-white;
+    @apply bg-[var(--bg-color)] text-[var(--text-primary)] font-sans antialiased selection:bg-[#C5A059] selection:text-white;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight text-[#0D162B];
+    @apply font-display tracking-tight text-[#1C1C1C];
   }
 }
 
@@ -107,22 +113,22 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(13, 22, 43, 0.15);
+    background: rgba(28, 28, 28, 0.15);
     border-radius: 10px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(13, 22, 43, 0.3);
+    background: rgba(28, 28, 28, 0.3);
   }
 
   .glass-panel {
-    @apply bg-white/80 backdrop-blur-2xl border border-[#0D162B]/[0.06] shadow-[0_8px_32px_0_rgba(13,22,43,0.04)];
+    @apply bg-white/80 backdrop-blur-2xl border border-[#1C1C1C]/[0.06] shadow-[0_8px_32px_0_rgba(28,28,28,0.04)];
   }
 
   .product-card {
     @apply relative flex h-full flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-sm transition-all duration-300;
   }
   .product-card:hover {
-    @apply -translate-y-0.5 border-[#2E75B6]/25 shadow-[0_18px_40px_-16px_rgba(13,22,43,0.18)];
+    @apply -translate-y-0.5 border-[#C5A059]/40 shadow-[0_18px_40px_-16px_rgba(28,28,28,0.16)];
   }
 
   .surface-card {
@@ -130,14 +136,48 @@
   }
 
   .field-input {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-[#0D162B] outline-none transition-shadow placeholder:font-normal placeholder:text-slate-400 focus:border-[#2E75B6] focus:ring-2 focus:ring-[#2E75B6]/20;
+    @apply w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm font-medium text-[#1C1C1C] outline-none transition-shadow placeholder:font-normal placeholder:text-stone-400 focus:border-[#C5A059] focus:ring-2 focus:ring-[#C5A059]/25;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-[#0D162B] px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-[#2E75B6] hover:shadow-lg;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-[#1C1C1C] px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-[#C5A059] hover:text-[#1C1C1C] hover:shadow-lg;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-[#0D162B]/15 bg-white px-5 py-2.5 text-sm font-semibold text-[#0D162B] transition-colors hover:border-[#2E75B6] hover:text-[#2E75B6];
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-[#1C1C1C]/15 bg-white px-5 py-2.5 text-sm font-semibold text-[#1C1C1C] transition-colors hover:border-[#C5A059] hover:text-[#996515];
+  }
+
+  .testimonials-marquee {
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 8%,
+      black 92%,
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 8%,
+      black 92%,
+      transparent
+    );
+  }
+
+  .testimonials-marquee-track {
+    animation: testimonials-scroll-right 45s linear infinite;
+  }
+
+  .testimonials-marquee:hover .testimonials-marquee-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes testimonials-scroll-right {
+    from {
+      transform: translateX(-50%);
+    }
+    to {
+      transform: translateX(0);
+    }
   }
 }

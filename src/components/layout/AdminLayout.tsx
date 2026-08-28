@@ -17,8 +17,8 @@ export default function AdminLayout() {
     <div className="min-h-screen flex flex-col bg-[#F4F7FB]">
       <header className="h-[72px] flex items-center justify-between px-4 md:px-8 bg-[#0A0D14] border-b border-white/10 sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <Logo to="/admin" variant="dark" />
-          <span className="hidden sm:inline text-xs font-semibold tracking-[0.2em] uppercase text-[#DEEAF6]/60 border-l border-white/15 pl-4">
+          <Logo to="/admin" size="sm" />
+          <span className="hidden sm:inline text-xs font-semibold tracking-[0.2em] uppercase text-[#F3EBD8]/60 border-l border-white/15 pl-4">
             Admin
           </span>
         </div>

@@ -127,7 +127,7 @@ export function ProductImageManager({ images, onChange }: ProductImageManagerPro
                   <p className="text-sm font-medium truncate">
                     Image {index + 1}
                     {index === 0 && (
-                      <span className="ml-2 text-xs font-normal text-[#2E75B6]">Main</span>
+                      <span className="ml-2 text-xs font-normal text-[#C5A059]">Main</span>
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">

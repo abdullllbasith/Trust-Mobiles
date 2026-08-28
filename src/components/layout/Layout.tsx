@@ -10,7 +10,7 @@ export default function Layout() {
   const isHome = location.pathname === "/";
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7FAFC]">
+    <div className="min-h-screen flex flex-col bg-[#F8F6F1]">
       <Navbar />
       <main className="flex-1 flex flex-col relative">
         <div style={{ display: isHome ? "block" : "none", width: "100%" }}>

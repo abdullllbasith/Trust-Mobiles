@@ -103,7 +103,7 @@ export default function Checkout() {
   };
 
   const inputClass =
-    "w-full bg-white border border-[#0D162B]/10 rounded-xl px-4 py-3 outline-none focus:border-[#2E75B6] focus:ring-1 focus:ring-[#2E75B6] text-[#0D162B] text-sm md:text-base font-medium transition-all shadow-sm";
+    "w-full bg-white border border-[#1C1C1C]/10 rounded-xl px-4 py-3 outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] text-[#1C1C1C] text-sm md:text-base font-medium transition-all shadow-sm";
 
   if (items.length === 0) {
     return (
@@ -112,7 +112,7 @@ export default function Checkout() {
           Your bag is empty
         </h2>
         <button
-          className="bg-[#0D162B] text-white px-8 py-3.5 rounded-full font-semibold hover:bg-[#2E75B6] transition-colors"
+          className="bg-[#1C1C1C] text-white px-8 py-3.5 rounded-full font-semibold hover:bg-[#C5A059] hover:text-[#1C1C1C] transition-colors"
           onClick={() => navigate("/shop")}
         >
           Go to Shop
@@ -124,17 +124,17 @@ export default function Checkout() {
   return (
     <div className="flex-1 bg-[var(--bg-color)] py-6 md:py-12 min-h-[calc(100vh-80px)]">
       <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        <h1 className="text-3xl md:text-4xl font-display font-semibold text-[#0D162B] mb-2 tracking-tight">
+        <h1 className="text-3xl md:text-4xl font-display font-semibold text-[#1C1C1C] mb-2 tracking-tight">
           Checkout
         </h1>
-        <p className="text-[#5A6577] font-medium mb-6 md:mb-8">
+        <p className="text-[#5C574F] font-medium mb-6 md:mb-8">
           No account needed. Confirm on WhatsApp and we will arrange delivery.
         </p>
 
         <div className="flex flex-col lg:flex-row gap-6 md:gap-10 lg:items-start">
           <div className="w-full lg:w-2/3">
             <div className="glass-panel bg-white rounded-[2rem] shadow-sm p-6 md:p-8">
-              <h2 className="text-xl md:text-2xl font-display font-semibold text-[#0D162B] mb-6">
+              <h2 className="text-xl md:text-2xl font-display font-semibold text-[#1C1C1C] mb-6">
                 Delivery details
               </h2>
               <form
@@ -144,7 +144,7 @@ export default function Checkout() {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-sm font-semibold text-[#5A6577] ml-1">
+                    <Label htmlFor="firstName" className="text-sm font-semibold text-[#5C574F] ml-1">
                       First Name
                     </Label>
                     <input
@@ -157,7 +157,7 @@ export default function Checkout() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-sm font-semibold text-[#5A6577] ml-1">
+                    <Label htmlFor="lastName" className="text-sm font-semibold text-[#5C574F] ml-1">
                       Last Name
                     </Label>
                     <input
@@ -172,7 +172,7 @@ export default function Checkout() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-sm font-semibold text-[#5A6577] ml-1">
+                    <Label htmlFor="phone" className="text-sm font-semibold text-[#5C574F] ml-1">
                       WhatsApp / Mobile
                     </Label>
                     <input
@@ -187,7 +187,7 @@ export default function Checkout() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-semibold text-[#5A6577] ml-1">
+                    <Label htmlFor="email" className="text-sm font-semibold text-[#5C574F] ml-1">
                       Email (optional)
                     </Label>
                     <input
@@ -201,7 +201,7 @@ export default function Checkout() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="address" className="text-sm font-semibold text-[#5A6577] ml-1">
+                  <Label htmlFor="address" className="text-sm font-semibold text-[#5C574F] ml-1">
                     Street Address
                   </Label>
                   <input
@@ -214,7 +214,7 @@ export default function Checkout() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="city" className="text-sm font-semibold text-[#5A6577] ml-1">
+                  <Label htmlFor="city" className="text-sm font-semibold text-[#5C574F] ml-1">
                     City
                   </Label>
                   <input
@@ -227,7 +227,7 @@ export default function Checkout() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="note" className="text-sm font-semibold text-[#5A6577] ml-1">
+                  <Label htmlFor="note" className="text-sm font-semibold text-[#5C574F] ml-1">
                     Order note (optional)
                   </Label>
                   <textarea
@@ -244,8 +244,8 @@ export default function Checkout() {
           </div>
 
           <div className="w-full lg:w-1/3 sticky top-24 md:top-32">
-            <div className="bg-[#0D162B] text-white rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-[-20%] right-[-10%] w-48 h-48 md:w-64 md:h-64 bg-[#2E75B6] rounded-full mix-blend-screen filter blur-[100px] opacity-30 pointer-events-none"></div>
+            <div className="bg-[#1C1C1C] text-white rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-[-20%] right-[-10%] w-48 h-48 md:w-64 md:h-64 bg-[#C5A059] rounded-full mix-blend-screen filter blur-[100px] opacity-30 pointer-events-none"></div>
 
               <h2 className="text-2xl md:text-3xl font-display font-semibold mb-6 md:mb-8 relative z-10">
                 Order Summary
@@ -276,7 +276,7 @@ export default function Checkout() {
                         Qty: {item.quantity}
                       </div>
                     </div>
-                    <div className="text-base font-semibold text-[#DEEAF6]">
+                    <div className="text-base font-semibold text-[#F3EBD8]">
                       LKR{" "}
                       {(
                         item.price *
@@ -299,7 +299,7 @@ export default function Checkout() {
                 </div>
                 <div className="flex justify-between text-sm md:text-base font-medium">
                   <span className="text-gray-400">Shipping</span>
-                  <span className="font-semibold text-[#DEEAF6]">
+                  <span className="font-semibold text-[#F3EBD8]">
                     {shipping === 0 ? "Free Delivery" : "LKR 10.00"}
                   </span>
                 </div>

@@ -7,7 +7,7 @@ export default function TradeIn() {
     <div className="flex-1 bg-[var(--bg-color)] min-h-screen">
       {/* Hero Section */}
       <section className="relative bg-[#111] text-white overflow-hidden pt-20 pb-24 md:pt-32 md:pb-40 rounded-b-[4rem] px-4 md:px-8">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#2E75B6]/20 rounded-full blur-[100px] pointer-events-none"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#C5A059]/20 rounded-full blur-[100px] pointer-events-none"></div>
         <div className="max-w-[1200px] mx-auto text-center relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -26,7 +26,7 @@ export default function TradeIn() {
               Trade in your eligible smartphone, tablet, or smartwatch, and get
               up to LKR 800 credit toward the latest flagship devices.
             </p>
-            <button className="bg-white text-[#111] hover:bg-[#2E75B6] hover:text-white px-5 py-2.5 rounded-lg font-semibold text-lg transition-colors shadow-2xl transform hover:scale-105">
+            <button className="bg-white text-[#111] hover:bg-[#C5A059] hover:text-[#1C1C1C] px-5 py-2.5 rounded-lg font-semibold text-lg transition-colors shadow-2xl transform hover:scale-105">
               Find Your Device Value
             </button>
           </motion.div>
@@ -70,7 +70,7 @@ export default function TradeIn() {
                 {item.step}
               </div>
               <div className="relative z-10 pb-4">
-                <div className="text-sm font-bold text-[#2E75B6] mb-4 bg-[#2E75B6]/10 px-4 py-2 rounded-full inline-block">
+                <div className="text-sm font-bold text-[#C5A059] mb-4 bg-[#C5A059]/10 px-4 py-2 rounded-full inline-block">
                   Step {item.step}
                 </div>
                 <h3 className="text-2xl font-display font-semibold text-[#111] mb-4">
@@ -94,7 +94,7 @@ export default function TradeIn() {
             </h2>
             <Link
               to="/shop"
-              className="text-[#111] font-semibold flex items-center gap-2 hover:text-[#2E75B6] transition-colors"
+              className="text-[#111] font-semibold flex items-center gap-2 hover:text-[#C5A059] transition-colors"
             >
               Shop New Devices <ArrowRight className="w-5 h-5" />
             </Link>
@@ -115,7 +115,7 @@ export default function TradeIn() {
                 <h4 className="font-semibold text-[#111] mb-2">
                   {device.name}
                 </h4>
-                <p className="text-[#2E75B6] font-bold text-lg">{device.val}</p>
+                <p className="text-[#C5A059] font-bold text-lg">{device.val}</p>
               </div>
             ))}
           </div>

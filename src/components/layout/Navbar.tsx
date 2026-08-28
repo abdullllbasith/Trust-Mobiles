@@ -42,10 +42,10 @@ export function Navbar() {
   };
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `text-[15px] font-semibold transition-colors relative after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:bg-[#2E75B6] after:transition-all after:duration-300 ${
+    `text-[15px] font-semibold transition-colors relative after:absolute after:bottom-[-6px] after:left-0 after:h-[2px] after:bg-[#C5A059] after:transition-all after:duration-300 ${
       isActive
-        ? "text-[#0D162B] after:w-full"
-        : "text-[#5A6577] hover:text-[#0D162B] after:w-0 hover:after:w-full"
+        ? "text-[#1C1C1C] after:w-full"
+        : "text-[#5C574F] hover:text-[#1C1C1C] after:w-0 hover:after:w-full"
     }`;
 
   return (
@@ -65,52 +65,52 @@ export function Navbar() {
               Store
               <ChevronDown className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />
             </NavLink>
-            <div className="absolute top-[80px] left-[-20px] w-[500px] bg-white/95 backdrop-blur-2xl border border-[#0D162B]/10 shadow-[0_30px_60px_-15px_rgba(13,22,43,0.12)] rounded-[2rem] p-8 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 z-50">
+            <div className="absolute top-[80px] left-[-20px] w-[500px] bg-white/95 backdrop-blur-2xl border border-[#1C1C1C]/10 shadow-[0_30px_60px_-15px_rgba(13,22,43,0.12)] rounded-[2rem] p-8 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 z-50">
               <div className="grid grid-cols-2 gap-8">
                 <div>
-                  <h3 className="font-display font-semibold text-[#0D162B] mb-5 text-lg">
+                  <h3 className="font-display font-semibold text-[#1C1C1C] mb-5 text-lg">
                     Shop
                   </h3>
-                  <ul className="space-y-3.5 text-[#5A6577] font-medium">
+                  <ul className="space-y-3.5 text-[#5C574F] font-medium">
                     <li>
-                      <Link to="/shop?category=Phones" className="hover:text-[#2E75B6] transition-colors block">
+                      <Link to="/shop?category=Phones" className="hover:text-[#C5A059] transition-colors block">
                         Smartphones
                       </Link>
                     </li>
                     <li>
-                      <Link to="/shop?category=Tablets" className="hover:text-[#2E75B6] transition-colors block">
+                      <Link to="/shop?category=Tablets" className="hover:text-[#C5A059] transition-colors block">
                         Tablets
                       </Link>
                     </li>
                     <li>
-                      <Link to="/shop?category=Accessories" className="hover:text-[#2E75B6] transition-colors block">
+                      <Link to="/shop?category=Accessories" className="hover:text-[#C5A059] transition-colors block">
                         Accessories
                       </Link>
                     </li>
                     <li>
-                      <Link to="/shop?category=Audio" className="hover:text-[#2E75B6] transition-colors block">
+                      <Link to="/shop?category=Audio" className="hover:text-[#C5A059] transition-colors block">
                         Audio
                       </Link>
                     </li>
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-display font-semibold text-[#0D162B] mb-5 text-lg">
+                  <h3 className="font-display font-semibold text-[#1C1C1C] mb-5 text-lg">
                     Featured Brands
                   </h3>
-                  <ul className="space-y-3.5 text-[#5A6577] font-medium">
+                  <ul className="space-y-3.5 text-[#5C574F] font-medium">
                     <li>
-                      <Link to="/shop?brand=Apple" className="hover:text-[#2E75B6] transition-colors block">
+                      <Link to="/shop?brand=Apple" className="hover:text-[#C5A059] transition-colors block">
                         Apple
                       </Link>
                     </li>
                     <li>
-                      <Link to="/shop?brand=Samsung" className="hover:text-[#2E75B6] transition-colors block">
+                      <Link to="/shop?brand=Samsung" className="hover:text-[#C5A059] transition-colors block">
                         Samsung
                       </Link>
                     </li>
                     <li>
-                      <Link to="/shop?brand=Google" className="hover:text-[#2E75B6] transition-colors block">
+                      <Link to="/shop?brand=Google" className="hover:text-[#C5A059] transition-colors block">
                         Google
                       </Link>
                     </li>
@@ -139,11 +139,11 @@ export function Navbar() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search phones & accessories"
-            className="bg-[#DEEAF6]/50 text-[#0D162B] border border-transparent rounded-full py-2.5 pl-11 pr-5 text-sm w-72 focus:ring-2 focus:ring-[#2E75B6]/30 focus:bg-white focus:shadow-sm outline-none transition-all focus:w-80 font-medium placeholder:text-slate-400"
+            className="bg-[#F3EBD8]/50 text-[#1C1C1C] border border-transparent rounded-full py-2.5 pl-11 pr-5 text-sm w-72 focus:ring-2 focus:ring-[#C5A059]/30 focus:bg-white focus:shadow-sm outline-none transition-all focus:w-80 font-medium placeholder:text-slate-400"
           />
           <button
             type="submit"
-            className="absolute left-4 text-gray-400 group-focus-within:text-[#2E75B6] transition-colors"
+            className="absolute left-4 text-gray-400 group-focus-within:text-[#C5A059] transition-colors"
             aria-label="Search"
           >
             <Search className="w-4 h-4" />
@@ -153,11 +153,11 @@ export function Navbar() {
         <div className="flex items-center gap-1.5 md:gap-3">
           <Link
             to="/wishlist"
-            className="relative group p-2 hover:bg-[#DEEAF6] rounded-full transition-colors hidden sm:block"
+            className="relative group p-2 hover:bg-[#F3EBD8] rounded-full transition-colors hidden sm:block"
           >
-            <Heart className="h-5 w-5 text-[#5A6577] group-hover:text-[#0D162B] transition-colors" />
+            <Heart className="h-5 w-5 text-[#5C574F] group-hover:text-[#1C1C1C] transition-colors" />
             {wishlistItems.length > 0 && (
-              <span className="absolute top-0 right-0 bg-[#0D162B] text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold">
+              <span className="absolute top-0 right-0 bg-[#1C1C1C] text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold">
                 {wishlistItems.length}
               </span>
             )}
@@ -165,19 +165,19 @@ export function Navbar() {
 
           <Link
             to="/cart"
-            className="relative group p-2 hover:bg-[#DEEAF6] rounded-full transition-colors"
+            className="relative group p-2 hover:bg-[#F3EBD8] rounded-full transition-colors"
           >
-            <ShoppingBag className="h-5 w-5 text-[#5A6577] group-hover:text-[#0D162B] transition-colors" />
+            <ShoppingBag className="h-5 w-5 text-[#5C574F] group-hover:text-[#1C1C1C] transition-colors" />
             {totalItems() > 0 && (
-              <span className="absolute top-0 right-0 bg-[#2E75B6] text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold">
+              <span className="absolute top-0 right-0 bg-[#C5A059] text-[#1C1C1C] text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold">
                 {totalItems()}
               </span>
             )}
           </Link>
 
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger className="lg:hidden p-2 hover:bg-[#DEEAF6] rounded-full ml-1 transition-colors">
-              <Menu className="h-6 w-6 text-[#0D162B]" />
+            <SheetTrigger className="lg:hidden p-2 hover:bg-[#F3EBD8] rounded-full ml-1 transition-colors">
+              <Menu className="h-6 w-6 text-[#1C1C1C]" />
             </SheetTrigger>
             <SheetContent
               side="right"
@@ -200,7 +200,7 @@ export function Navbar() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search devices..."
-                    className="w-full bg-[#DEEAF6]/60 text-[#0D162B] border border-transparent rounded-full py-3 pl-11 pr-5 text-base font-medium placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#2E75B6] focus:bg-white"
+                    className="w-full bg-[#F3EBD8]/60 text-[#1C1C1C] border border-transparent rounded-full py-3 pl-11 pr-5 text-base font-medium placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#C5A059] focus:bg-white"
                   />
                   <button
                     type="submit"
@@ -221,7 +221,7 @@ export function Navbar() {
                     key={href}
                     to={href}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="text-2xl font-display font-medium text-[#0D162B] hover:text-[#2E75B6] transition-colors flex justify-between items-center border-b border-black/5 pb-6"
+                    className="text-2xl font-display font-medium text-[#1C1C1C] hover:text-[#C5A059] transition-colors flex justify-between items-center border-b border-black/5 pb-6"
                   >
                     {label} <ArrowRight className="w-5 h-5 text-gray-300" />
                   </Link>

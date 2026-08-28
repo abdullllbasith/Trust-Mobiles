@@ -19,7 +19,7 @@ export default function About() {
           transition={{ duration: 0.6 }}
         >
           <h1 className="text-5xl md:text-7xl font-display font-medium text-[#111] tracking-tight mb-6">
-            We are <span className="text-[#2E75B6]">Trust Mobile</span>.
+            We are <span className="text-[#C5A059]">Trust Mobile</span>.
           </h1>
           <p className="text-gray-500 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed">
             Your premier destination for authentic, world-class mobile
@@ -49,7 +49,7 @@ export default function About() {
               />
             </div>
             <div className="h-48 bg-[#111] rounded-[2rem] p-8 flex flex-col justify-center relative overflow-hidden group">
-              <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-[#2E75B6] rounded-full blur-[40px] opacity-20"></div>
+              <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-[#C5A059] rounded-full blur-[40px] opacity-20"></div>
               <h3 className="text-white text-3xl font-display font-medium mb-2">
                 10+ Years
               </h3>
@@ -111,7 +111,7 @@ export default function About() {
                 key={idx}
                 className="bg-gray-50 p-8 rounded-[2rem] hover:-translate-y-2 transition-transform duration-300"
               >
-                <div className="bg-white w-14 h-14 rounded-full flex items-center justify-center text-[#2E75B6] shadow-sm mb-6">
+                <div className="bg-white w-14 h-14 rounded-full flex items-center justify-center text-[#C5A059] shadow-sm mb-6">
                   {value.icon}
                 </div>
                 <h3 className="text-xl font-display font-semibold text-[#111] mb-3">

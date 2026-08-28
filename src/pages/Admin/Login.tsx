@@ -47,11 +47,11 @@ export default function AdminLogin() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <img
-            src="/logo-dark.png"
+            src={encodeURI("/Artboard 1.png")}
             alt="Trust Mobile"
-            className="h-16 w-auto mx-auto mb-6 object-contain"
+            className="h-20 w-auto mx-auto mb-6 object-contain"
           />
-          <div className="inline-flex items-center gap-2 text-[#DEEAF6]/70 text-sm font-medium">
+          <div className="inline-flex items-center gap-2 text-[#F3EBD8]/70 text-sm font-medium">
             <Shield className="w-4 h-4" />
             Staff access only
           </div>
@@ -77,7 +77,7 @@ export default function AdminLogin() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#0A0D14] border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-[#2E75B6] text-white font-medium"
+                className="w-full bg-[#0A0D14] border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-[#C5A059] text-white font-medium"
               />
             </div>
             <div className="space-y-2">
@@ -91,12 +91,12 @@ export default function AdminLogin() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[#0A0D14] border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-[#2E75B6] text-white font-medium"
+                className="w-full bg-[#0A0D14] border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-[#C5A059] text-white font-medium"
               />
             </div>
             <button
               type="submit"
-              className="w-full bg-[#2E75B6] hover:bg-[#427BBE] text-white py-3.5 rounded-full font-semibold transition-colors mt-2"
+              className="w-full bg-[#1C1C1C] text-white hover:bg-[#C5A059] hover:text-[#1C1C1C] py-3.5 rounded-full font-semibold transition-colors mt-2"
               disabled={loading}
             >
               {loading ? "Verifying..." : "Sign in"}

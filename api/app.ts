@@ -125,13 +125,45 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, default: 'user' }
+  role: { type: String, default: 'user' },
+  // Empty array = full admin access (legacy / super admin)
+  permissions: { type: [String], default: [] },
 }, { timestamps: true });
+
+const ADMIN_PERMISSION_IDS = [
+  'inventory',
+  'categories',
+  'brands',
+  'users',
+  'promotions',
+  'happy_customers',
+] as const;
+
+function normalizePermissions(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const allowed = new Set<string>(ADMIN_PERMISSION_IDS);
+  return [
+    ...new Set(
+      raw
+        .map((p) => String(p || '').trim().toLowerCase())
+        .filter((p) => allowed.has(p)),
+    ),
+  ];
+}
+
+/** Empty permissions = full access. */
+function userHasPermission(user: { permissions?: string[] } | null | undefined, permission: string) {
+  const list = normalizePermissions(user?.permissions);
+  if (list.length === 0) return true;
+  return list.includes(permission);
+}
 
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   brand: { type: String, required: true },
   category: { type: String, required: true },
+  description: { type: String, default: '' },
+  highlights: { type: [String], default: [] },
   price: { type: Number, required: true },
   discount: { type: Number, default: 0 },
   stock: { type: Number, default: 0 },
@@ -222,6 +254,23 @@ brandSchema.set('toJSON', {
   }
 });
 
+const happyCustomerSchema = new mongoose.Schema({
+  name: { type: String, default: '' },
+  caption: { type: String, default: '' },
+  image: { type: String, required: true },
+  active: { type: Boolean, default: true },
+  sortOrder: { type: Number, default: 0 },
+}, { timestamps: true });
+
+happyCustomerSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret: any) => {
+    ret.id = ret._id.toString();
+    delete ret._id;
+    delete ret.__v;
+  }
+});
+
 
 const User = mongoose.model('User', userSchema);
 const Product = mongoose.model('Product', productSchema);
@@ -229,6 +278,7 @@ const Order = mongoose.model('Order', orderSchema);
 const Advertisement = mongoose.model('Advertisement', adSchema);
 const Category = mongoose.model('Category', categorySchema);
 const Brand = mongoose.model('Brand', brandSchema);
+const HappyCustomer = mongoose.model('HappyCustomer', happyCustomerSchema);
 
 // Seed Database
 const seedData = async () => {
@@ -244,6 +294,7 @@ const seedData = async () => {
         email: env.ADMIN_EMAIL.toLowerCase(),
         password: hash,
         role: 'admin',
+        permissions: [],
       });
       console.log(`Seeded admin account for ${env.ADMIN_EMAIL}`);
     }
@@ -506,6 +557,7 @@ app.post('/api/admin/login', async (req, res) => {
         email: user.email,
         role: user.role,
         name: user.name,
+        permissions: normalizePermissions((user as any).permissions),
         typ: 'admin',
       },
       getJwtSecret(),
@@ -514,7 +566,13 @@ app.post('/api/admin/login', async (req, res) => {
 
     res.json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        permissions: normalizePermissions((user as any).permissions),
+      },
     });
   } catch {
     res.status(500).json({ error: 'Server error during login' });
@@ -542,7 +600,7 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 app.post('/api/products', ...authenticateAdmin, async (req, res) => {
-  const { name, brand, category, price, discount, stock, images, specs } = req.body;
+  const { name, brand, category, description, highlights, price, discount, stock, images, specs } = req.body;
 
   try {
     if (!String(name || '').trim() || !String(brand || '').trim() || !String(category || '').trim()) {
@@ -555,6 +613,10 @@ app.post('/api/products', ...authenticateAdmin, async (req, res) => {
       name: String(name).trim(),
       brand: String(brand).trim(),
       category: String(category).trim(),
+      description: String(description || '').trim(),
+      highlights: Array.isArray(highlights)
+        ? highlights.map((h: unknown) => String(h || '').trim()).filter(Boolean)
+        : [],
       price: parseFloat(price),
       discount: parseFloat(discount || 0),
       stock: parseInt(stock || 0, 10),
@@ -579,7 +641,7 @@ app.delete('/api/products/:id', ...authenticateAdmin, async (req, res) => {
 
 app.put('/api/products/:id', ...authenticateAdmin, async (req, res) => {
   try {
-    const { name, brand, category, price, discount, stock, images, specs } = req.body;
+    const { name, brand, category, description, highlights, price, discount, stock, images, specs } = req.body;
     if (!String(name || '').trim() || !String(brand || '').trim() || !String(category || '').trim()) {
       return res.status(400).json({ error: 'Name, brand, and category are required' });
     }
@@ -587,6 +649,10 @@ app.put('/api/products/:id', ...authenticateAdmin, async (req, res) => {
       name: String(name).trim(),
       brand: String(brand).trim(),
       category: String(category).trim(),
+      description: String(description || '').trim(),
+      highlights: Array.isArray(highlights)
+        ? highlights.map((h: unknown) => String(h || '').trim()).filter(Boolean)
+        : [],
       price: parseFloat(price),
       discount: parseFloat(discount || 0),
       stock: parseInt(stock || 0, 10),
@@ -597,6 +663,131 @@ app.put('/api/products/:id', ...authenticateAdmin, async (req, res) => {
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: mongoErrorMessage(error, 'Failed to update product') });
+  }
+});
+
+/** AI-assisted "You may also like" — picks complementary products from live inventory */
+app.post('/api/products/:id/recommendations', async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    const catalog = await Product.find({
+      _id: { $ne: product._id },
+      stock: { $gt: 0 },
+    })
+      .select('name brand category price discount stock images specs')
+      .limit(40)
+      .lean();
+
+    const fallback = () => {
+      const sameCategory = catalog.filter(
+        (p: any) => String(p.category).toLowerCase() === String(product.category).toLowerCase(),
+      );
+      const sameBrand = catalog.filter(
+        (p: any) => String(p.brand).toLowerCase() === String(product.brand).toLowerCase(),
+      );
+      const merged = [...sameCategory, ...sameBrand, ...catalog];
+      const seen = new Set<string>();
+      const picks: any[] = [];
+      for (const p of merged) {
+        const id = String(p._id);
+        if (seen.has(id)) continue;
+        seen.add(id);
+        picks.push(p);
+        if (picks.length >= 4) break;
+      }
+      return picks;
+    };
+
+    const ai = getAIClient();
+    if (!ai || catalog.length === 0) {
+      return res.json({
+        products: fallback().map((p: any) => ({
+          ...p,
+          id: String(p._id),
+          _id: undefined,
+        })),
+        source: ai ? 'inventory' : 'inventory',
+        reason: 'Matched by category and brand from live stock.',
+      });
+    }
+
+    const inventoryLines = catalog
+      .map(
+        (p: any) =>
+          `${p._id}|${p.name}|${p.brand}|${p.category}|LKR ${p.price}|stock ${p.stock}`,
+      )
+      .join('\n');
+
+    const prompt = [
+      {
+        role: 'system' as const,
+        content: `You are a product recommendation engine for Trust Mobile (Sri Lanka).
+Given a product the customer is viewing, recommend up to 4 OTHER products from the inventory list that they may also like.
+Prioritize: complementary accessories, same ecosystem/brand, similar category/use-case, or natural upgrades.
+Reply with ONLY valid JSON: {"ids":["id1","id2"],"reason":"one short sentence explaining the recommendation logic"}
+Use only IDs from the inventory list. Never invent products.`,
+      },
+      {
+        role: 'user' as const,
+        content: `Customer is viewing:
+Name: ${product.name}
+Brand: ${product.brand}
+Category: ${product.category}
+Price: LKR ${product.price}
+Specs: ${JSON.stringify(product.specs || {})}
+
+Inventory (id|name|brand|category|price|stock):
+${inventoryLines}`,
+      },
+    ];
+
+    let ids: string[] = [];
+    let reason = 'Picked products that fit this shopper’s likely needs.';
+
+    try {
+      const { completion } = await createCompletionWithFallback({
+        client: ai.client,
+        provider: ai.provider,
+        models: resolveChatModelChain(ai.provider),
+        messages: prompt,
+        withTools: false,
+      });
+      const raw = String(completion?.choices?.[0]?.message?.content || '').trim();
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed.ids)) {
+          ids = parsed.ids.map((x: any) => String(x));
+        }
+        if (parsed.reason) reason = String(parsed.reason);
+      }
+    } catch (err: any) {
+      console.warn('AI recommendations failed, using fallback:', err?.message || err);
+    }
+
+    const byId = new Map(catalog.map((p: any) => [String(p._id), p]));
+    let picks = ids.map((id) => byId.get(id)).filter(Boolean);
+
+    if (picks.length < 2) {
+      picks = fallback();
+      reason = 'Matched by category and brand from live stock.';
+    } else {
+      picks = picks.slice(0, 4);
+    }
+
+    res.json({
+      products: picks.map((p: any) => {
+        const { _id, __v, ...rest } = p;
+        return { ...rest, id: String(_id) };
+      }),
+      source: ids.length >= 2 ? 'ai' : 'inventory',
+      reason,
+    });
+  } catch (error: any) {
+    console.error('Recommendations error:', error);
+    res.status(500).json({ error: 'Failed to load recommendations' });
   }
 });
 
@@ -669,21 +860,105 @@ app.get('/api/users', ...authenticateAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/users/:id', ...authenticateAdmin, async (req, res) => {
+app.post('/api/users', ...authenticateAdmin, async (req: any, res) => {
   try {
-    const { name, email, role } = req.body;
-    const updated = await User.findByIdAndUpdate(req.params.id, {
-      name, email, role
-    }, { new: true }).select('-password');
+    if (!userHasPermission(req.user, 'users')) {
+      return res.status(403).json({ error: 'You do not have permission to manage users.' });
+    }
+
+    const name = String(req.body?.name || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+    const role = String(req.body?.role || 'user').toLowerCase() === 'admin' ? 'admin' : 'user';
+    const permissions = role === 'admin' ? normalizePermissions(req.body?.permissions) : [];
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ error: 'A user with this email already exists' });
+    }
+
+    if (role === 'admin' && permissions.length === 0 && Array.isArray(req.body?.permissions)) {
+      // Explicit empty selection is allowed only if creator has full access;
+      // empty permissions means full access — require at least one if they meant to restrict.
+      // Keep empty = full access when creating admins with "all" checked on the client.
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+    const created = await User.create({
+      name,
+      email,
+      password: hash,
+      role,
+      permissions: role === 'admin' ? permissions : [],
+    });
+
+    res.status(201).json({
+      id: created._id,
+      name: created.name,
+      email: created.email,
+      role: created.role,
+      permissions: created.permissions || [],
+      success: true,
+    });
+  } catch (error) {
+    res.status(500).json({ error: mongoErrorMessage(error, 'Failed to create user') });
+  }
+});
+
+app.put('/api/users/:id', ...authenticateAdmin, async (req: any, res) => {
+  try {
+    if (!userHasPermission(req.user, 'users')) {
+      return res.status(403).json({ error: 'You do not have permission to manage users.' });
+    }
+
+    const { name, email, role, permissions, password } = req.body;
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+
+    // Admin accounts keep the admin role — cannot be demoted
+    const nextRole =
+      target.role === 'admin' ? 'admin' : String(role || target.role).toLowerCase() === 'admin' ? 'admin' : 'user';
+
+    const update: Record<string, unknown> = {
+      name: String(name || target.name).trim(),
+      email: String(email || target.email).trim().toLowerCase(),
+      role: nextRole,
+    };
+
+    if (nextRole === 'admin') {
+      // Existing locked admins: allow permission updates only if not demoting
+      update.permissions = normalizePermissions(permissions ?? target.permissions);
+    } else {
+      update.permissions = [];
+    }
+
+    if (password && String(password).length >= 6) {
+      update.password = await bcrypt.hash(String(password), 12);
+    }
+
+    const updated = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select(
+      '-password',
+    );
     if (!updated) return res.status(404).json({ error: 'User not found' });
     res.json(updated);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update user' });
+    res.status(500).json({ error: mongoErrorMessage(error, 'Failed to update user') });
   }
 });
 
 app.delete('/api/users/:id', ...authenticateAdmin, async (req: any, res) => {
   try {
+    if (!userHasPermission(req.user, 'users')) {
+      return res.status(403).json({ error: 'You do not have permission to manage users.' });
+    }
+
     const target = await User.findById(req.params.id);
     if (!target) return res.status(404).json({ error: 'User not found' });
     if (target.role === 'admin') {
@@ -750,6 +1025,77 @@ app.delete('/api/ads/:id', ...authenticateAdmin, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete ad' });
+  }
+});
+
+// Happy Customers carousel
+app.get('/api/happy-customers', async (req, res) => {
+  try {
+    const filter = req.query.all === '1' ? {} : { active: true };
+    const items = await HappyCustomer.find(filter).sort({ sortOrder: 1, createdAt: -1 });
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch happy customers' });
+  }
+});
+
+app.post('/api/happy-customers', ...authenticateAdmin, async (req: any, res) => {
+  try {
+    const image = String(req.body?.image || '').trim();
+    if (!image) return res.status(400).json({ error: 'Image is required' });
+    if (image.length > 12_000_000) {
+      return res.status(400).json({
+        error: 'Image is too large. Please use a smaller photo (under ~8MB).',
+      });
+    }
+    const item = await HappyCustomer.create({
+      name: String(req.body?.name || '').trim(),
+      caption: String(req.body?.caption || '').trim(),
+      image,
+      active: req.body?.active !== false,
+      sortOrder: Number(req.body?.sortOrder) || 0,
+    });
+    res.status(201).json(item);
+  } catch (error) {
+    console.error('Create happy customer failed:', error);
+    res.status(400).json({ error: mongoErrorMessage(error, 'Failed to create happy customer') });
+  }
+});
+
+app.put('/api/happy-customers/:id', ...authenticateAdmin, async (req: any, res) => {
+  try {
+    const update: Record<string, unknown> = {};
+    if (req.body?.name !== undefined) update.name = String(req.body.name).trim();
+    if (req.body?.caption !== undefined) update.caption = String(req.body.caption).trim();
+    if (req.body?.image !== undefined) {
+      const image = String(req.body.image).trim();
+      if (!image) return res.status(400).json({ error: 'Image is required' });
+      if (image.length > 12_000_000) {
+        return res.status(400).json({
+          error: 'Image is too large. Please use a smaller photo (under ~8MB).',
+        });
+      }
+      update.image = image;
+    }
+    if (req.body?.active !== undefined) update.active = Boolean(req.body.active);
+    if (req.body?.sortOrder !== undefined) update.sortOrder = Number(req.body.sortOrder) || 0;
+
+    const item = await HappyCustomer.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!item) return res.status(404).json({ error: 'Happy customer not found' });
+    res.json(item);
+  } catch (error) {
+    console.error('Update happy customer failed:', error);
+    res.status(500).json({ error: mongoErrorMessage(error, 'Failed to update happy customer') });
+  }
+});
+
+app.delete('/api/happy-customers/:id', ...authenticateAdmin, async (req: any, res) => {
+  try {
+    const deleted = await HappyCustomer.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Happy customer not found' });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete happy customer' });
   }
 });
 
@@ -1359,8 +1705,18 @@ app.post('/api/chat', async (req, res) => {
       role: 'system',
       content: `You are a helpful, expert AI shopping assistant for Trust Mobile (Sri Lanka). You help users find tech devices, compare specs, and recommend products from OUR store inventory only.
 
+BRAND / PLATFORM:
+- This storefront and AI experience are powered by Softora.
+- Whenever you mention Softora, ALWAYS write it as a short markdown link only: [Softora](https://softora.lk)
+- Never paste a bare/raw URL (do not write https://softora.lk as plain text, and do not write Softora (https://softora.lk)).
+- Softora is the technology partner; Trust Mobile is the phone store. Do not invent Softora services beyond that.
+
+LINKS (required for every URL):
+- All links must use short clickable markdown: [Label](https://example.com)
+- Never dump long raw URLs in the reply.
+
 STRICT RULES:
-1) Only answer questions about Trust Mobile, phones, tablets, accessories, store policies, or shopping.
+1) Only answer questions about Trust Mobile, phones, tablets, accessories, store policies, shopping, or Softora as the platform that powers this site.
 2) Use ONLY the LIVE INVENTORY CONTEXT below — never invent products, prices, or stock.
 3) Keep answers concise, friendly, and clear. Prices are in LKR.
 4) FORMATTING (required): Use markdown with real line breaks. For multiple products use a numbered list like:
@@ -1374,7 +1730,7 @@ STRICT RULES:
           ? `The user asked about a specific product ("${matchedProductName}"). Confirm availability and briefly say you are opening that product page now.`
           : 'This is a general/browse question OR no single specific product was requested. List matching items only — do NOT say you are opening a product page.'
       }
-6) If unrelated to shopping/tech store topics, politely refuse.
+6) If unrelated to shopping/tech store topics (and not about Softora powering this site), politely refuse.
 
 LIVE INVENTORY CONTEXT:
 ${inventoryContext || 'No products loaded.'}`,

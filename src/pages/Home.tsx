@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 const FlashSaleTimer = ({ endDate }: { endDate: string }) => {
   const [timeLeft, setTimeLeft] = useState("");
@@ -35,20 +35,80 @@ import {
   Watch,
   BatteryCharging,
   Speaker,
-  Truck,
-  Clock,
   Shield,
   CheckCircle,
   Heart,
-  Eye,
-  ShoppingBag,
   Mail,
-  Quote
+  MessageCircle,
+  HelpCircle,
+  ChevronDown,
+  BadgeCheck,
 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { toast } from "sonner";
 import Phone3D from "@/components/Phone3D";
+import { ProductCard } from "@/components/ProductCard";
+import { HappyCustomersCarousel } from "@/components/HappyCustomersCarousel";
+import { WHATSAPP_NUMBER } from "@/constants";
+
+const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}`;
+
+const HOME_FAQS = [
+  {
+    q: "How does WhatsApp checkout work?",
+    a: "Add items to your bag, fill in your details at checkout, then tap confirm. We open WhatsApp with your order summary so our team can confirm everything with you.",
+  },
+  {
+    q: "Do I need an account to order?",
+    a: "No. Trust Mobile is guest checkout only — no registration required.",
+  },
+  {
+    q: "Are your products genuine?",
+    a: "Yes. We sell authentic phones and accessories, and we confirm stock and condition with you on WhatsApp before you pay.",
+  },
+  {
+    q: "Can I trade in my old phone?",
+    a: "Yes. Use our Trade-In page to get a value estimate, then our team will guide you through the upgrade on WhatsApp.",
+  },
+  {
+    q: "How can I get help picking a device?",
+    a: "Use the AI assistant on the site, or message us on WhatsApp — we’ll help you compare options from live stock.",
+  },
+];
+
+const HOME_TESTIMONIALS = [
+  {
+    name: "Kavindi D.",
+    role: "Tech Enthusiast",
+    text: "WhatsApp confirmation made ordering so easy. Genuine Pixel, fair price, and the team replied within minutes.",
+    img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150",
+  },
+  {
+    name: "Kasun P.",
+    role: "Photographer",
+    text: "Traded in my old iPhone seamlessly. Best prices and genuine products. I won't buy tech anywhere else now.",
+    img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150",
+  },
+  {
+    name: "Nethmi W.",
+    role: "Designer",
+    text: "Their support helped me pick the right device for work. Clear answers, no pressure — exactly what I wanted.",
+    img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150",
+  },
+  {
+    name: "Dilshan R.",
+    role: "Student",
+    text: "Asked the AI assistant a few questions, then confirmed on WhatsApp. Smooth from start to finish.",
+    img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150",
+  },
+  {
+    name: "Ishara M.",
+    role: "Business Owner",
+    text: "Clear LKR pricing and authentic stock. Ordering for my team was straightforward.",
+    img: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150",
+  },
+];
 
 const TECH_NEWS_RSS =
   "https://www.wired.com/feed/category/gear/latest/rss";
@@ -157,6 +217,7 @@ export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [ads, setAds] = useState<any[]>([]);
   const [news, setNews] = useState<any[]>([]);
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
   const { addItem } = useCartStore();
   const {
     addItem: addWishlist,
@@ -167,7 +228,7 @@ export default function Home() {
   useEffect(() => {
     fetch(`/api/products`)
       .then((res) => res.json())
-      .then((data) => setFeaturedProducts(data))
+      .then((data) => setFeaturedProducts(Array.isArray(data) ? data : []))
       .catch(console.error);
 
     fetch(`/api/ads`)
@@ -201,6 +262,23 @@ export default function Home() {
       })
       .catch(console.error);
   }, []);
+
+  const bestSellers = [...featuredProducts]
+    .sort((a, b) => (b.discount || 0) - (a.discount || 0) || (b.stock || 0) - (a.stock || 0))
+    .slice(0, 4);
+
+  const newArrivals = [...featuredProducts]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+    )
+    .slice(0, 4);
+
+  // If createdAt is missing, fall back to last items from API order
+  const newArrivalsSafe =
+    newArrivals.length > 0 && newArrivals.some((p) => p.createdAt)
+      ? newArrivals
+      : [...featuredProducts].slice(-4).reverse();
 
   const handleAddToCart = (e: any, product: any) => {
     e.preventDefault();
@@ -244,7 +322,7 @@ export default function Home() {
       {/* HERO SECTION */}
       <section className="relative w-full pt-[32px] pb-[90px] px-4 md:px-8 overflow-hidden flex justify-center">
         {/* Abstract animated blurred blobs */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-[#2E75B6]/10 blur-[120px] pointer-events-none mix-blend-multiply opacity-70"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-[#C5A059]/10 blur-[120px] pointer-events-none mix-blend-multiply opacity-70"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-[#121212]/5 blur-[100px] pointer-events-none mix-blend-multiply opacity-50"></div>
 
         <div style={{ paddingTop: '43px', paddingBottom: '35px' }} className="max-w-[1400px] w-full relative z-10 glass-panel rounded-[2rem] md:rounded-[3rem] overflow-hidden grid grid-cols-1 lg:grid-cols-2 items-center border border-white/60 px-8 md:px-12 lg:px-16 xl:px-20 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] bg-white/40 gap-8 xl:gap-12">
@@ -255,26 +333,26 @@ export default function Home() {
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col items-center lg:items-start"
             >
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[56px] xl:text-[72px] font-display font-semibold leading-[1.05] text-[#0D162B] tracking-tight">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[56px] xl:text-[72px] font-display font-semibold leading-[1.05] text-[#1C1C1C] tracking-tight">
                 Phones &amp; accessories
                 <br />
-                <span className="text-[#2E75B6]">you can trust.</span>
+                <span className="text-[#C5A059]">you can trust.</span>
               </h1>
-              <p className="text-[#5A6577] mt-4 sm:mt-6 xl:mt-8 text-base sm:text-lg md:text-xl font-medium max-w-lg leading-relaxed mx-auto lg:mx-0">
-                Shop unlocked phones and accessories. Checkout is free — we confirm every order on WhatsApp.
+              <p className="text-[#5C574F] mt-4 sm:mt-6 xl:mt-8 text-base sm:text-lg md:text-xl font-medium max-w-lg leading-relaxed mx-auto lg:mx-0">
+                Genuine phones and accessories in LKR. Add to bag, then confirm your order with us on WhatsApp — no account needed.
               </p>
               <div className="mt-6 sm:mt-8 xl:mt-12 flex flex-wrap justify-center lg:justify-start gap-3 sm:gap-4 w-full">
                 <Link to="/shop">
-                  <button className="bg-[#0D162B] hover:bg-[#2E75B6] text-white px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base rounded-full font-semibold transition-all duration-300 shadow-xl hover:shadow-[#2E75B6]/40 hover:shadow-2xl flex gap-2 items-center group transform hover:-translate-y-1">
+                  <button className="bg-[#1C1C1C] text-white hover:bg-[#C5A059] hover:text-[#1C1C1C] px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base rounded-full font-semibold transition-all duration-300 shadow-xl hover:shadow-[#C5A059]/40 hover:shadow-2xl flex gap-2 items-center group transform hover:-translate-y-1">
                     Shop now{" "}
                     <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
                   </button>
                 </Link>
-                <Link to="/checkout">
-                  <button className="bg-transparent border border-[#0D162B]/20 hover:border-[#2E75B6] text-[#0D162B] px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base rounded-full font-semibold transition-colors">
-                    WhatsApp checkout
+                <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
+                  <button className="bg-transparent border border-[#1C1C1C]/20 hover:border-[#C5A059] text-[#1C1C1C] px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base rounded-full font-semibold transition-colors flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4" /> Chat on WhatsApp
                   </button>
-                </Link>
+                </a>
               </div>
             </motion.div>
           </div>
@@ -287,10 +365,35 @@ export default function Home() {
             className="hidden lg:flex w-full aspect-square max-h-[600px] justify-center items-center relative"
           >
             <div className="relative w-full h-full flex items-center justify-center">
-              <div className="absolute w-[80%] h-[95%] bg-gradient-to-tr from-[#121212] to-[#2E75B6] rounded-[3rem] opacity-10 rotate-6 blur-2xl pointer-events-none"></div>
+              <div className="absolute w-[80%] h-[95%] bg-gradient-to-tr from-[#121212] to-[#C5A059] rounded-[3rem] opacity-10 rotate-6 blur-2xl pointer-events-none"></div>
               <Phone3D />
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* TRUST STRIP — no delivery claims */}
+      <section className="max-w-[1400px] mx-auto w-full px-4 md:px-8 -mt-10 mb-14 relative z-20">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          {[
+            { icon: <BadgeCheck className="w-5 h-5" />, title: "Genuine products", desc: "Authentic devices only" },
+            { icon: <MessageCircle className="w-5 h-5" />, title: "WhatsApp care", desc: "Real humans, fast replies" },
+            { icon: <ShieldCheck className="w-5 h-5" />, title: "Warranty support", desc: "Covered after you buy" },
+            { icon: <CheckCircle className="w-5 h-5" />, title: "Guest checkout", desc: "No account required" },
+          ].map((item) => (
+            <div
+              key={item.title}
+              className="flex items-start gap-3 rounded-2xl border border-black/[0.06] bg-white px-4 py-4 shadow-sm"
+            >
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F3EBD8] text-[#996515]">
+                {item.icon}
+              </div>
+              <div>
+                <div className="font-display font-semibold text-sm text-[#1C1C1C]">{item.title}</div>
+                <div className="text-xs text-[#5C574F] font-medium mt-0.5">{item.desc}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -306,38 +409,43 @@ export default function Home() {
                 Upgrade Program
               </h3>
               <p className="text-white/60 mb-8 font-medium text-lg leading-relaxed max-w-sm">
-                Trade in your old device and get up to LKR 500 towards the
-                latest flagship smartphones.
+                Trade in your old device and get credit toward the latest
+                flagship smartphones.
               </p>
-              <button className="text-[#121212] bg-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-[#2E75B6] hover:text-white transition-all">
-                Value Your Device
-              </button>
+              <Link to="/trade-in">
+                <button className="text-[#121212] bg-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-[#C5A059] hover:text-[#1C1C1C] transition-all">
+                  Value Your Device
+                </button>
+              </Link>
             </div>
-            <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-[#2E75B6]/30 rounded-full blur-[80px] group-hover:scale-125 group-hover:bg-[#2E75B6]/40 transition-all duration-700"></div>
+            <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-[#C5A059]/30 rounded-full blur-[80px] group-hover:scale-125 group-hover:bg-[#C5A059]/40 transition-all duration-700"></div>
           </motion.div>
 
           <motion.div
             whileHover={{ y: -5 }}
-            className="bg-gradient-to-br from-[#ebeceb] to-[#dfe1e0] text-[#121212] rounded-[2rem] p-10 md:p-14 group shadow-md border border-white relative overflow-hidden"
+            className="bg-gradient-to-br from-[#F3EBD8] to-[#ebe5d6] text-[#121212] rounded-[2rem] p-10 md:p-14 group shadow-md border border-white relative overflow-hidden"
           >
             <div className="relative z-10 flex flex-col h-full justify-between">
               <div>
-                <div className="bg-white/50 w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-white">
-                  <Truck className="w-7 h-7 text-[#2E75B6]" />
+                <div className="bg-white/70 w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-white">
+                  <MessageCircle className="w-7 h-7 text-[#C5A059]" />
                 </div>
                 <h3 className="text-3xl font-display font-medium">
-                  Free Global Delivery
+                  WhatsApp checkout
                 </h3>
                 <p className="text-[#121212]/60 font-medium text-lg mt-3 max-w-sm">
-                  On all premium orders above LKR 199. Experience hyper-fast
-                  shipping.
+                  Confirm stock, price, and payment with our team — simple and
+                  personal, every order.
                 </p>
               </div>
-              <div className="mt-8 flex items-baseline gap-2">
-                <span className="text-4xl lg:text-5xl font-display font-bold">
-                  Express
-                </span>
-              </div>
+              <a
+                href={WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-8 inline-flex items-center gap-2 font-semibold text-[#1C1C1C] hover:text-[#996515] transition-colors"
+              >
+                Message us now <ArrowRight className="w-4 h-4" />
+              </a>
             </div>
             <div className="absolute top-0 right-0 w-[50%] h-full bg-white/40 skew-x-12 translate-x-32 group-hover:translate-x-full transition-transform duration-1000"></div>
           </motion.div>
@@ -420,7 +528,7 @@ export default function Home() {
               <Link to={`/shop?category=${cat.name}`} key={cat.name}>
                 <div className="glass-panel p-8 rounded-[2rem] flex flex-col items-center justify-center gap-5 hover:-translate-y-2 transition-transform duration-300 group cursor-pointer relative overflow-hidden bg-white/40">
                   <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-40 transition-opacity"></div>
-                  <div className="relative z-10 text-[#121212] opacity-80 group-hover:opacity-100 group-hover:text-[#2E75B6] transition-colors">
+                  <div className="relative z-10 text-[#121212] opacity-80 group-hover:opacity-100 group-hover:text-[#C5A059] transition-colors">
                     {cat.icon}
                   </div>
                   <span className="font-semibold text-sm text-[#111] text-center relative z-10">
@@ -432,142 +540,123 @@ export default function Home() {
           </div>
         </div>
 
-        {/* TRENDING PRODUCTS (Horizontal Scroll) */}
-        <div className="mb-24 relative">
-          <div className="flex items-end justify-between mb-10 px-2 flex-col sm:flex-row gap-4">
+        {/* BEST SELLERS */}
+        <div className="mb-20">
+          <div className="mb-8 px-2 flex flex-col items-center text-center gap-3 sm:flex-row sm:items-end sm:justify-between sm:text-left sm:gap-4">
             <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C5A059] mb-2">
+                Most popular
+              </p>
               <h2 className="text-3xl lg:text-4xl font-display font-semibold text-[#111] tracking-tight">
-                Trending Now
+                Best sellers
               </h2>
               <p className="text-gray-500 mt-2 font-medium">
-                The most sought-after devices this week.
+                Devices shoppers pick again and again.
               </p>
             </div>
             <Link
               to="/shop"
-              className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#2E75B6] transition-colors whitespace-nowrap"
+              className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#C5A059] transition-colors whitespace-nowrap"
             >
-              View Collection <ArrowRight className="w-4 h-4" />
+              View all <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-
-          <div className="flex overflow-x-auto gap-6 pb-12 snap-x snap-mandatory pt-2 hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-            {featuredProducts.length > 0
-              ? featuredProducts.map((product, idx) => {
-                  const images =
-                    typeof product.images === "string"
-                      ? JSON.parse(product.images)
-                      : product.images;
-                  const isWishlisted = isInWishlist(product.id);
-
-                  return (
-                    <motion.div
-                      key={`${product.id}-${idx}`}
-                      className="min-w-[220px] md:min-w-[320px] w-[220px] md:w-[320px] snap-start"
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, margin: "-100px" }}
-                      transition={{ duration: 0.5, delay: (idx % 4) * 0.1 }}
-                    >
-                      <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-black/[0.03] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] hover:border-black/5 transition-all duration-300 min-h-[380px] md:min-h-[500px] flex flex-col group relative overflow-hidden">
-                        {/* Action Icons */}
-                        <div className="absolute top-3 right-3 md:top-4 md:right-4 flex flex-col gap-2 z-20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity lg:translate-x-2 lg:group-hover:translate-x-0">
-                          <button
-                            onClick={(e) => toggleWishlist(e, product)}
-                            className="bg-white/90 backdrop-blur-md p-2 md:p-2.5 rounded-full shadow-lg hover:bg-white text-gray-600 hover:text-red-500 transition-all"
-                          >
-                            <Heart
-                              className="w-4 h-4 md:w-4 md:h-4"
-                              fill={isWishlisted ? "currentColor" : "none"}
-                              color={isWishlisted ? "red" : "currentColor"}
-                            />
-                          </button>
-                          <Link
-                            to={`/product/${product.id}`}
-                            className="bg-white/90 backdrop-blur-md p-2 md:p-2.5 rounded-full shadow-lg hover:bg-white text-gray-600 hover:text-[#121212] transition-all hidden md:block"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
-                        </div>
-
-                        {/* Discount Tag */}
-                        {product.discount > 0 && (
-                          <span className="absolute top-3 left-3 md:top-4 md:left-4 bg-[#111] text-white text-[10px] md:text-xs font-semibold tracking-wider px-2 py-1 md:px-3 md:py-1.5 rounded-full z-20 shadow-sm border border-white/10">
-                            {product.discount}% OFF
-                          </span>
-                        )}
-
-                        <Link
-                          to={`/product/${product.id}`}
-                          className="flex-1 flex flex-col h-full"
-                        >
-                          {/* Edge-to-edge Image Container */}
-                          <div className="w-full h-44 md:h-64 bg-[#F7FAFC] relative overflow-hidden group-hover:bg-[#F0F2F1] transition-colors">
-                            <img
-                              src={images[0]}
-                              alt={product.name}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out mix-blend-multiply"
-                            />
-                          </div>
-
-                          {/* Content Area */}
-                          <div className="p-4 md:p-6 flex-1 flex flex-col">
-                            <div className="text-[9px] md:text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
-                              {product.brand}
-                            </div>
-                            <h4 className="font-display font-semibold text-sm md:text-lg mt-0.5 md:mt-1 line-clamp-1 text-[#111]">
-                              {product.name}
-                            </h4>
-
-                            <div className="flex items-center gap-0.5 md:gap-1 mt-1 md:mt-2">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 fill-[#121212] text-[#121212]"
-                                />
-                              ))}
-                            </div>
-
-                            <div className="mt-auto pt-4 md:pt-5 border-t border-black/5">
-                              <div className="mb-3">
-                                <div className="text-[#121212] text-base md:text-xl font-display font-bold">
-                                  LKR{" "}
-                                  {Math.round(
-                                    product.price *
-                                      (1 - product.discount / 100),
-                                  ).toLocaleString("en-US")}
-                                </div>
-                                {product.discount > 0 && (
-                                  <div className="text-xs md:text-sm text-gray-400 font-medium line-through">
-                                    LKR {Math.round(product.price).toLocaleString("en-US")}
-                                  </div>
-                                )}
-                              </div>
-                              <button
-                                onClick={(e) => handleAddToCart(e, product)}
-                                className="w-full bg-[#111] text-white py-2.5 md:py-3 rounded-xl text-sm font-semibold hover:bg-[#2E75B6] transition-all shadow-md flex items-center justify-center gap-2"
-                              >
-                                <ShoppingBag className="w-4 h-4" />
-                                Add to cart
-                              </button>
-                            </div>
-                          </div>
-                        </Link>
-                      </div>
-                    </motion.div>
-                  );
-                })
-              : [1, 2, 3, 4].map((n) => (
-                  <div
-                    key={n}
-                    className="min-w-[300px] bg-white p-5 rounded-[2rem] border border-transparent h-[420px] flex flex-col"
-                  >
-                    <div className="w-full h-52 bg-gray-100 animate-pulse rounded-2xl mb-5"></div>
-                    <div className="h-3 bg-gray-100 animate-pulse w-1/3 mb-3 rounded"></div>
-                    <div className="h-6 bg-gray-100 animate-pulse w-3/4 mb-auto rounded"></div>
-                    <div className="h-12 bg-gray-100 animate-pulse w-full mt-4 rounded-xl"></div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            {(bestSellers.length > 0 ? bestSellers : [1, 2, 3, 4]).map((product: any, idx: number) => {
+              if (typeof product === "number") {
+                return (
+                  <div key={product} className="bg-white rounded-2xl border border-black/[0.04] h-[320px] p-4">
+                    <div className="w-full h-44 bg-gray-100 animate-pulse rounded-xl mb-4" />
+                    <div className="h-3 bg-gray-100 animate-pulse w-1/3 mb-2 rounded" />
+                    <div className="h-5 bg-gray-100 animate-pulse w-3/4 rounded" />
                   </div>
-                ))}
+                );
+              }
+              const isWishlisted = isInWishlist(product.id);
+              return (
+                <motion.div
+                  key={`best-${product.id}-${idx}`}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: idx * 0.05 }}
+                >
+                  <ProductCard
+                    product={product}
+                    onAdd={handleAddToCart}
+                    actions={
+                      <div className="absolute top-3 right-3 z-20">
+                        <button
+                          type="button"
+                          onClick={(e) => toggleWishlist(e, product)}
+                          className="bg-white p-2 rounded-full shadow-md text-gray-500 hover:text-red-500"
+                          aria-label="Toggle wishlist"
+                        >
+                          <Heart
+                            className="w-4 h-4"
+                            fill={isWishlisted ? "currentColor" : "none"}
+                            color={isWishlisted ? "red" : "currentColor"}
+                          />
+                        </button>
+                      </div>
+                    }
+                  />
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* NEW ARRIVALS */}
+        <div className="mb-24">
+          <div className="mb-8 px-2 flex flex-col items-center text-center gap-3 sm:flex-row sm:items-end sm:justify-between sm:text-left sm:gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C5A059] mb-2">
+                Just landed
+              </p>
+              <h2 className="text-3xl lg:text-4xl font-display font-semibold text-[#111] tracking-tight">
+                New arrivals
+              </h2>
+              <p className="text-gray-500 mt-2 font-medium">
+                Fresh stock added to the store.
+              </p>
+            </div>
+            <Link
+              to="/shop?sort=newest"
+              className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#C5A059] transition-colors whitespace-nowrap"
+            >
+              View all <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            {(newArrivalsSafe.length > 0 ? newArrivalsSafe : [1, 2, 3, 4]).map(
+              (product: any, idx: number) => {
+                if (typeof product === "number") {
+                  return (
+                    <div key={`new-skel-${product}`} className="bg-white rounded-2xl border border-black/[0.04] h-[320px] p-4">
+                      <div className="w-full h-44 bg-gray-100 animate-pulse rounded-xl mb-4" />
+                      <div className="h-3 bg-gray-100 animate-pulse w-1/3 mb-2 rounded" />
+                      <div className="h-5 bg-gray-100 animate-pulse w-3/4 rounded" />
+                    </div>
+                  );
+                }
+                return (
+                  <motion.div
+                    key={`new-${product.id}-${idx}`}
+                    initial={{ opacity: 0, y: 16 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: idx * 0.05 }}
+                  >
+                    <ProductCard
+                      product={product}
+                      onAdd={handleAddToCart}
+                      badge="new"
+                    />
+                  </motion.div>
+                );
+              },
+            )}
           </div>
         </div>
 
@@ -589,13 +678,13 @@ export default function Home() {
         {ads.filter(ad => ad.position === 'flash_sale').map((ad, idx) => (
           <div key={idx} className="mb-24">
             <div className="bg-[#121212] rounded-[3rem] p-8 md:p-16 text-white relative overflow-hidden flex flex-col lg:flex-row items-center gap-12 shadow-2xl">
-              <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-[#2E75B6] rounded-full mix-blend-screen filter blur-[150px] opacity-20 pointer-events-none"></div>
+              <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-[#C5A059] rounded-full mix-blend-screen filter blur-[150px] opacity-20 pointer-events-none"></div>
 
               <div className="flex-1 z-10 w-full text-center lg:text-left">
                 <span className="bg-red-500 text-white text-xs font-semibold uppercase tracking-widest px-4 py-2 rounded-full inline-block mb-6 shadow-sm border border-red-400/50">
                   Flash Sale • {ad.endDate ? <FlashSaleTimer endDate={ad.endDate} /> : "Limited Time"}
                 </span>
-                <h2 className="text-4xl md:text-6xl font-display font-medium mb-6 leading-[1.1] whitespace-pre-line text-[#2E75B6]">
+                <h2 className="text-4xl md:text-6xl font-display font-medium mb-6 leading-[1.1] whitespace-pre-line text-[#C5A059]">
                   {ad.title}
                 </h2>
                 {ad.description && (
@@ -604,7 +693,7 @@ export default function Home() {
                   </p>
                 )}
 
-                <a href={ad.link || "#"} target={ad.link ? "_blank" : undefined} className="inline-block mt-2 bg-white text-[#121212] px-8 py-4 rounded-full font-semibold hover:bg-[#2E75B6] hover:text-white transform hover:scale-105 transition-all outline-none">
+                <a href={ad.link || "#"} target={ad.link ? "_blank" : undefined} className="inline-block mt-2 bg-white text-[#121212] px-8 py-4 rounded-full font-semibold hover:bg-[#C5A059] hover:text-[#1C1C1C] transform hover:scale-105 transition-all outline-none">
                   Claim Deal Now
                 </a>
               </div>
@@ -622,36 +711,174 @@ export default function Home() {
           </div>
         ))}
 
-        {/* CUSTOMER TESTIMONIALS */}
-        <section className="mb-24 px-4 md:px-0">
-          <div className="flex flex-col items-center text-center mb-12">
-            <h2 className="text-3xl lg:text-5xl font-display font-semibold text-[#111] tracking-tight">
-              Loved by Thousands
+        {/* HOW WHATSAPP ORDERING WORKS */}
+        <section className="mb-24">
+          <div className="text-center mb-12">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C5A059] mb-2">
+              Simple as 1-2-3-4
+            </p>
+            <h2 className="text-3xl lg:text-4xl font-display font-semibold text-[#111] tracking-tight">
+              How ordering works
             </h2>
-            <p className="text-gray-500 mt-4 text-lg font-medium max-w-2xl">
-              See why our customers trust us for their premium tech upgrades.
+            <p className="text-gray-500 mt-3 font-medium max-w-xl mx-auto">
+              From bag to confirmation on WhatsApp — clear steps, no surprises.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
-              { name: "Kavindi D.", role: "Tech Enthusiast", text: "The fastest delivery for my new Pixel 8 Pro. Highly recommended! The unboxing experience was just flawless.", img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" },
-              { name: "Kasun P.", role: "Photographer", text: "Traded in my old iPhone seamlessly. Best prices and genuine products. I won't buy tech anywhere else now.", img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" },
-              { name: "Nethmi W.", role: "Designer", text: "Their customer support is unmatched. Helped me pick the perfect MacBook for my design workflow.", img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150" }
-            ].map((review, i) => (
-              <div key={i} className="glass-panel p-8 rounded-[2rem] bg-white/60 hover:bg-white transition-colors duration-300 shadow-sm border border-black/5 hover:shadow-xl group">
-                <div className="flex gap-1 mb-6 text-[#121212]">
-                  {[1,2,3,4,5].map(s => <Star key={s} className="w-4 h-4 fill-current" />)}
+              {
+                step: "01",
+                title: "Choose your product",
+                desc: "Browse the store or ask our AI assistant for help.",
+              },
+              {
+                step: "02",
+                title: "Add to bag",
+                desc: "Build your order — guest checkout, no account needed.",
+              },
+              {
+                step: "03",
+                title: "Confirm on WhatsApp",
+                desc: "We open WhatsApp with your order summary for our team.",
+              },
+              {
+                step: "04",
+                title: "We finalize with you",
+                desc: "Stock, price, and payment are confirmed personally.",
+              },
+            ].map((item) => (
+              <div
+                key={item.step}
+                className="rounded-2xl border border-black/[0.06] bg-white p-6 shadow-sm"
+              >
+                <div className="font-display text-3xl font-bold text-[#C5A059] mb-4">
+                  {item.step}
                 </div>
-                <p className="text-[#111] font-medium text-lg leading-relaxed mb-8">"{review.text}"</p>
-                <div className="flex items-center gap-4 mt-auto">
-                  <img src={review.img} alt={review.name} className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm" />
-                  <div>
-                    <h4 className="font-display font-bold text-[#111]">{review.name}</h4>
-                    <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">{review.role}</span>
-                  </div>
-                </div>
+                <h3 className="font-display font-semibold text-lg text-[#1C1C1C] mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-[#5C574F] font-medium leading-relaxed">
+                  {item.desc}
+                </p>
               </div>
             ))}
+          </div>
+          <div className="mt-10 flex flex-wrap justify-center gap-3">
+            <Link to="/shop">
+              <button className="bg-[#1C1C1C] text-white hover:bg-[#C5A059] hover:text-[#1C1C1C] px-7 py-3 rounded-full text-sm font-semibold transition-all">
+                Start shopping
+              </button>
+            </Link>
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
+              <button className="border border-[#1C1C1C]/15 bg-white text-[#1C1C1C] hover:border-[#C5A059] px-7 py-3 rounded-full text-sm font-semibold transition-all inline-flex items-center gap-2">
+                <MessageCircle className="w-4 h-4" /> Order on WhatsApp
+              </button>
+            </a>
+          </div>
+        </section>
+
+        <HappyCustomersCarousel />
+
+        {/* FAQ */}
+        <section className="mb-24">
+          <div className="max-w-3xl mx-auto">
+            <div className="text-center mb-10">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#C5A059] mb-2">
+                FAQ
+              </p>
+              <h2 className="text-3xl lg:text-4xl font-display font-semibold text-[#111] tracking-tight">
+                Frequently asked questions
+              </h2>
+              <p className="text-gray-500 mt-3 font-medium">
+                Still wondering?{" "}
+                <a
+                  href={WHATSAPP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#996515] font-semibold hover:underline"
+                >
+                  Reach us on WhatsApp
+                </a>
+                .
+              </p>
+            </div>
+            <div className="space-y-3">
+              {HOME_FAQS.map((faq, i) => {
+                const open = openFaq === i;
+                return (
+                  <div
+                    key={faq.q}
+                    className="rounded-2xl border border-black/[0.06] bg-white overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setOpenFaq(open ? null : i)}
+                      className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
+                    >
+                      <span className="font-display font-semibold text-[#1C1C1C] flex items-center gap-2">
+                        <HelpCircle className="w-4 h-4 text-[#C5A059] shrink-0" />
+                        {faq.q}
+                      </span>
+                      <ChevronDown
+                        className={`w-5 h-5 text-[#5C574F] shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    {open && (
+                      <div className="px-5 pb-5 text-sm text-[#5C574F] font-medium leading-relaxed border-t border-black/[0.04] pt-3">
+                        {faq.a}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* CUSTOMER TESTIMONIALS */}
+        <section className="mb-24 px-0">
+          <div className="flex flex-col items-center text-center mb-12 px-4 md:px-0">
+            <h2 className="text-3xl lg:text-5xl font-display font-semibold text-[#111] tracking-tight">
+              Loved by customers
+            </h2>
+            <p className="text-gray-500 mt-4 text-lg font-medium max-w-2xl">
+              See why people trust us for phones, accessories, and trade-ins.
+            </p>
+          </div>
+
+          <div className="testimonials-marquee relative overflow-hidden">
+            <div className="testimonials-marquee-track flex w-max gap-6 py-2">
+              {[...HOME_TESTIMONIALS, ...HOME_TESTIMONIALS].map((review, i) => (
+                  <div
+                    key={`${review.name}-${i}`}
+                    className="glass-panel w-[min(85vw,360px)] shrink-0 p-8 rounded-[2rem] bg-white/80 shadow-sm border border-black/5"
+                  >
+                    <div className="flex gap-1 mb-6 text-[#121212]">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} className="w-4 h-4 fill-current" />
+                      ))}
+                    </div>
+                    <p className="text-[#111] font-medium text-lg leading-relaxed mb-8">
+                      "{review.text}"
+                    </p>
+                    <div className="flex items-center gap-4 mt-auto">
+                      <img
+                        src={review.img}
+                        alt={review.name}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                      />
+                      <div>
+                        <h4 className="font-display font-bold text-[#111]">
+                          {review.name}
+                        </h4>
+                        <span className="text-xs text-gray-500 font-semibold uppercase tracking-wider">
+                          {review.role}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
           </div>
         </section>
 
@@ -666,7 +893,7 @@ export default function Home() {
                 Latest news, reviews, and guides from the tech world.
               </p>
             </div>
-            <a href="https://www.wired.com/category/gear/" target="_blank" rel="noopener noreferrer" className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#2E75B6] transition-colors whitespace-nowrap">
+            <a href="https://www.wired.com/category/gear/" target="_blank" rel="noopener noreferrer" className="text-[#121212] font-semibold flex items-center gap-2 hover:text-[#C5A059] transition-colors whitespace-nowrap">
               Read All Articles <ArrowRight className="w-4 h-4" />
             </a>
           </div>
@@ -681,7 +908,7 @@ export default function Home() {
                 </div>
                 <div className="p-6 md:p-8 flex-1 flex flex-col">
                   <span className="text-sm text-gray-400 font-medium mb-3">{post.date}</span>
-                  <h3 className="font-display font-semibold text-xl text-[#111] leading-snug mb-4 group-hover:text-[#2E75B6] transition-colors">{post.title}</h3>
+                  <h3 className="font-display font-semibold text-xl text-[#111] leading-snug mb-4 group-hover:text-[#C5A059] transition-colors">{post.title}</h3>
                   <div className="mt-auto flex items-center gap-2 text-sm font-bold text-[#121212]">
                     Read Article <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -694,7 +921,7 @@ export default function Home() {
         {/* NEWSLETTER */}
         <section className="mb-24">
           <div className="bg-[#121212] rounded-[3rem] p-10 md:p-20 relative overflow-hidden flex justify-center text-center">
-            <div className="absolute top-[-50%] left-[-20%] w-[800px] h-[800px] bg-[#2E75B6] rounded-full mix-blend-screen filter blur-[200px] opacity-20 pointer-events-none"></div>
+            <div className="absolute top-[-50%] left-[-20%] w-[800px] h-[800px] bg-[#C5A059] rounded-full mix-blend-screen filter blur-[200px] opacity-20 pointer-events-none"></div>
             <div className="relative z-10 max-w-2xl">
               <div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-8 backdrop-blur-md border border-white/10">
                 <Mail className="w-8 h-8 text-white" />
@@ -709,10 +936,10 @@ export default function Home() {
                 <input 
                   type="email" 
                   placeholder="Enter your email address" 
-                  className="flex-1 bg-white/5 border border-white/10 text-white rounded-full px-6 py-4 focus:outline-none focus:border-[#2E75B6] transition-colors placeholder:text-white/30"
+                  className="flex-1 bg-white/5 border border-white/10 text-white rounded-full px-6 py-4 focus:outline-none focus:border-[#C5A059] transition-colors placeholder:text-white/30"
                   required
                 />
-                <button type="submit" className="bg-[#2E75B6] text-white font-semibold rounded-full px-8 py-4 hover:bg-white hover:text-[#0D162B] transition-colors shadow-[0_0_20px_rgba(46,117,182,0.35)] hover:shadow-white/20 whitespace-nowrap">
+                <button type="submit" className="bg-[#C5A059] text-white font-semibold rounded-full px-8 py-4 hover:bg-white hover:text-[#1C1C1C] transition-colors shadow-[0_0_20px_rgba(46,117,182,0.35)] hover:shadow-white/20 whitespace-nowrap">
                   Subscribe
                 </button>
               </form>
@@ -725,19 +952,19 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-12 text-center">
             {[
               {
-                icon: <Truck className="w-6 h-6" />,
-                title: "Swift Dispatch",
-                desc: "Same day fast shipping",
+                icon: <MessageCircle className="w-6 h-6" />,
+                title: "WhatsApp care",
+                desc: "Confirm every order with us",
               },
               {
                 icon: <Shield className="w-6 h-6" />,
                 title: "Full Warranty",
-                desc: "1-year official guarantee",
+                desc: "Support after you buy",
               },
               {
                 icon: <Zap className="w-6 h-6" />,
-                title: "Price Match",
-                desc: "Best prices promised",
+                title: "Fair prices",
+                desc: "Clear LKR pricing",
               },
               {
                 icon: <CheckCircle className="w-6 h-6" />,
@@ -746,7 +973,7 @@ export default function Home() {
               },
             ].map((feat, i) => (
               <div key={i} className="flex flex-col items-center group">
-                <div className="bg-[#f0f0f0] text-[#121212] p-4 rounded-full mb-5 group-hover:bg-[#2E75B6] group-hover:text-white transition-colors duration-300">
+                <div className="bg-[#f0f0f0] text-[#121212] p-4 rounded-full mb-5 group-hover:bg-[#C5A059] group-hover:text-[#1C1C1C] transition-colors duration-300">
                   {feat.icon}
                 </div>
                 <h3 className="font-display font-medium text-[#111] text-lg mb-2">

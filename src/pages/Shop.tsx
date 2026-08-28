@@ -8,7 +8,6 @@ import {
   Heart,
   ShoppingBag,
   Eye,
-  Star,
   X,
   Truck,
   MessageCircle,
@@ -29,6 +28,7 @@ import { useCartStore, Product } from "@/store/cartStore";
 import { useWishlistStore } from "@/store/wishlistStore";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { ProductCard } from "@/components/ProductCard";
 
 const CATEGORIES = ["Phones", "Accessories", "Tablets", "Wearables"];
 const BRANDS = ["Apple", "Samsung", "Google", "Xiaomi", "Sony"];
@@ -287,14 +287,14 @@ export default function Shop() {
       onClick={onClick}
       className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
         selected
-          ? "bg-[#0D162B] text-white"
+          ? "bg-[#1C1C1C] text-white"
           : "text-slate-700 hover:bg-slate-100"
       }`}
     >
       <span
         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
           selected
-            ? "border-white bg-white text-[#0D162B]"
+            ? "border-white bg-white text-[#1C1C1C]"
             : "border-slate-300 bg-white"
         }`}
       >
@@ -371,7 +371,7 @@ export default function Shop() {
                 }
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                   active
-                    ? "bg-[#2E75B6] text-white"
+                    ? "bg-[#C5A059] text-white"
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 }`}
               >
@@ -416,14 +416,14 @@ export default function Shop() {
       <div className="flex w-full">
         <aside className="sticky top-[75px] hidden h-[calc(100vh-75px)] w-[280px] shrink-0 flex-col self-start border-r border-slate-200 bg-white lg:flex">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <h2 className="text-base font-display font-semibold text-[#0D162B]">
+            <h2 className="text-base font-display font-semibold text-[#1C1C1C]">
               Filters
             </h2>
             {hasFilters && (
               <button
                 type="button"
                 onClick={clearFilters}
-                className="text-xs font-semibold text-[#2E75B6] hover:underline"
+                className="text-xs font-semibold text-[#C5A059] hover:underline"
               >
                 Reset
               </button>
@@ -437,7 +437,7 @@ export default function Shop() {
         <div className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="font-display text-3xl font-semibold tracking-tight text-[#0D162B] md:text-4xl">
+              <h1 className="font-display text-3xl font-semibold tracking-tight text-[#1C1C1C] md:text-4xl">
                 Shop
               </h1>
               <p className="mt-1 text-sm font-medium text-slate-500 md:text-base">
@@ -494,7 +494,7 @@ export default function Shop() {
                       <DropdownMenuItem
                         key={value}
                         className={`cursor-pointer rounded-lg px-3 py-2 text-sm ${
-                          sort === value ? "bg-[#0D162B] text-white" : ""
+                          sort === value ? "bg-[#1C1C1C] text-white" : ""
                         }`}
                         onClick={() => setSort(value)}
                       >
@@ -509,13 +509,13 @@ export default function Shop() {
 
           <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex items-center gap-3 rounded-2xl border border-black/[0.05] bg-white px-4 py-3">
-              <MessageCircle className="h-5 w-5 shrink-0 text-[#2E75B6]" />
+              <MessageCircle className="h-5 w-5 shrink-0 text-[#C5A059]" />
               <p className="text-sm font-medium text-slate-600">
                 Checkout is free — we confirm every order on WhatsApp.
               </p>
             </div>
             <div className="flex items-center gap-3 rounded-2xl border border-black/[0.05] bg-white px-4 py-3">
-              <Truck className="h-5 w-5 shrink-0 text-[#2E75B6]" />
+              <Truck className="h-5 w-5 shrink-0 text-[#C5A059]" />
               <p className="text-sm font-medium text-slate-600">
                 Genuine devices with support after you buy.
               </p>
@@ -562,7 +562,7 @@ export default function Shop() {
               )}
               <button
                 onClick={clearFilters}
-                className="ml-1 text-sm font-semibold text-[#2E75B6] hover:underline"
+                className="ml-1 text-sm font-semibold text-[#C5A059] hover:underline"
               >
                 Clear all
               </button>
@@ -581,7 +581,7 @@ export default function Shop() {
             </div>
           ) : loadError ? (
             <div className="surface-card py-20 text-center px-6">
-              <h2 className="mb-2 font-display text-xl font-semibold text-[#0D162B]">
+              <h2 className="mb-2 font-display text-xl font-semibold text-[#1C1C1C]">
                 Couldn’t load products
               </h2>
               <p className="mb-3 text-sm text-slate-500 max-w-lg mx-auto">
@@ -603,9 +603,6 @@ export default function Shop() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProducts.map((product, idx) => {
                 const isWishlisted = isInWishlist(product.id);
-                const currentPrice =
-                  product.price * (1 - product.discount / 100);
-                const images = productImages(product);
 
                 return (
                   <motion.div
@@ -614,92 +611,38 @@ export default function Shop() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25, delay: (idx % 9) * 0.03 }}
                   >
-                    <div className="product-card group min-h-[420px]">
-                      <div className="absolute right-3 top-3 z-20 flex flex-col gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => toggleWishlist(e, product)}
-                          className="rounded-full bg-white p-2.5 text-slate-500 shadow-md hover:text-red-500"
-                          aria-label="Toggle wishlist"
-                        >
-                          <Heart
-                            className="h-4 w-4"
-                            fill={isWishlisted ? "currentColor" : "none"}
-                            color={isWishlisted ? "red" : "currentColor"}
-                          />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setQuickViewProduct(product);
-                          }}
-                          className="hidden rounded-full bg-white p-2.5 text-slate-500 shadow-md hover:text-[#0D162B] md:block"
-                          aria-label="Quick view"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      {product.discount > 0 && (
-                        <span className="absolute left-3 top-3 z-20 rounded-full bg-[#0D162B] px-2.5 py-1 text-xs font-semibold text-white">
-                          {product.discount}% OFF
-                        </span>
-                      )}
-
-                      <Link
-                        to={`/product/${product.id}`}
-                        className="flex h-full flex-col"
-                      >
-                        <div className="h-52 overflow-hidden bg-slate-50 md:h-56">
-                          <img
-                            src={images[0]}
-                            alt={product.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          />
+                    <ProductCard
+                      product={product}
+                      onAdd={(e, p) => handleAddToCart(e, p as Product)}
+                      actions={
+                        <div className="absolute right-3 top-3 z-20 flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => toggleWishlist(e, product)}
+                            className="rounded-full bg-white p-2.5 text-slate-500 shadow-md hover:text-red-500"
+                            aria-label="Toggle wishlist"
+                          >
+                            <Heart
+                              className="h-4 w-4"
+                              fill={isWishlisted ? "currentColor" : "none"}
+                              color={isWishlisted ? "red" : "currentColor"}
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setQuickViewProduct(product);
+                            }}
+                            className="hidden rounded-full bg-white p-2.5 text-slate-500 shadow-md hover:text-[#1C1C1C] md:block"
+                            aria-label="Quick view"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
                         </div>
-                        <div className="flex flex-1 flex-col p-5">
-                          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                            {product.brand}
-                          </div>
-                          <h4 className="mt-1 font-display text-lg font-semibold leading-snug text-[#0D162B] line-clamp-2">
-                            {product.name}
-                          </h4>
-                          <div className="mt-2 flex items-center gap-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className="h-3.5 w-3.5 fill-amber-400 text-amber-400"
-                              />
-                            ))}
-                            <span className="ml-1 text-xs font-medium text-slate-400">
-                              5.0
-                            </span>
-                          </div>
-                          <div className="mt-auto pt-4">
-                            <div className="mb-3">
-                              <div className="font-display text-xl font-bold text-[#0D162B]">
-                                {formatLkr(currentPrice)}
-                              </div>
-                              {product.discount > 0 && (
-                                <div className="text-sm font-medium text-slate-400 line-through">
-                                  {formatLkr(product.price)}
-                                </div>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => handleAddToCart(e, product)}
-                              className="btn-primary w-full rounded-xl"
-                            >
-                              <ShoppingBag className="h-4 w-4" />
-                              Add to cart
-                            </button>
-                          </div>
-                        </div>
-                      </Link>
-                    </div>
+                      }
+                    />
                   </motion.div>
                 );
               })}
@@ -707,7 +650,7 @@ export default function Shop() {
           ) : (
             <div className="surface-card py-20 text-center">
               <Search className="mx-auto mb-3 h-8 w-8 text-slate-300" />
-              <h2 className="mb-2 font-display text-xl font-semibold text-[#0D162B]">
+              <h2 className="mb-2 font-display text-xl font-semibold text-[#1C1C1C]">
                 No products match
               </h2>
               <p className="mb-5 text-sm text-slate-500">
@@ -754,10 +697,10 @@ export default function Shop() {
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                   {quickViewProduct.brand}
                 </span>
-                <h2 className="mt-1 mb-2 font-display text-2xl font-semibold text-[#0D162B]">
+                <h2 className="mt-1 mb-2 font-display text-2xl font-semibold text-[#1C1C1C]">
                   {quickViewProduct.name}
                 </h2>
-                <div className="mb-6 font-display text-2xl font-bold text-[#0D162B]">
+                <div className="mb-6 font-display text-2xl font-bold text-[#1C1C1C]">
                   {formatLkr(
                     quickViewProduct.price *
                       (1 - quickViewProduct.discount / 100),
@@ -791,7 +734,7 @@ export default function Shop() {
                 </div>
                 <Link
                   to={`/product/${quickViewProduct.id}`}
-                  className="mt-4 border-t border-slate-100 pt-4 text-center text-sm font-semibold text-slate-500 hover:text-[#0D162B]"
+                  className="mt-4 border-t border-slate-100 pt-4 text-center text-sm font-semibold text-slate-500 hover:text-[#1C1C1C]"
                 >
                   View full details →
                 </Link>

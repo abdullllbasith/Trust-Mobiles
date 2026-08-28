@@ -22,7 +22,7 @@ export default function Cart() {
             premium collections.
           </p>
           <Link to="/shop">
-            <button className="bg-[#111] text-white hover:bg-[#2E75B6] transition-colors py-3 md:py-4 px-8 md:px-10 rounded-full text-sm md:text-base font-semibold shadow-md transform hover:-translate-y-1">
+            <button className="bg-[#1C1C1C] text-white hover:bg-[#C5A059] hover:text-[#1C1C1C] transition-colors py-3 md:py-4 px-8 md:px-10 rounded-full text-sm md:text-base font-semibold shadow-md transform hover:-translate-y-1">
               Start Shopping
             </button>
           </Link>
@@ -58,7 +58,7 @@ export default function Cart() {
                       <div className="flex gap-4 sm:gap-6 pr-8">
                         <Link
                           to={`/product/${item.id}`}
-                          className="w-20 h-20 sm:w-28 sm:h-28 bg-[#F7FAFC] rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden group border border-black/[0.03]"
+                          className="w-20 h-20 sm:w-28 sm:h-28 bg-[#F8F6F1] rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden group border border-black/[0.03]"
                         >
                           <img
                             src={
@@ -74,7 +74,7 @@ export default function Cart() {
                         <div className="flex-1 flex flex-col justify-between py-1">
                           <div>
                             <Link to={`/product/${item.id}`}>
-                              <h3 className="font-display font-semibold text-sm sm:text-lg text-[#111] line-clamp-1 hover:text-[#2E75B6] transition-colors">
+                              <h3 className="font-display font-semibold text-sm sm:text-lg text-[#111] line-clamp-1 hover:text-[#C5A059] transition-colors">
                                 {item.name}
                               </h3>
                             </Link>
@@ -122,7 +122,7 @@ export default function Cart() {
 
           <div className="w-full lg:w-1/3">
             <div className="bg-[#121212] text-white rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 shadow-2xl sticky top-24 md:top-32 relative overflow-hidden border border-white/10">
-              <div className="absolute -top-10 -right-10 w-48 h-48 md:w-64 md:h-64 bg-[#2E75B6] rounded-full mix-blend-screen filter blur-[100px] opacity-20"></div>
+              <div className="absolute -top-10 -right-10 w-48 h-48 md:w-64 md:h-64 bg-[#C5A059] rounded-full mix-blend-screen filter blur-[100px] opacity-20"></div>
 
               <h2 className="text-2xl md:text-3xl font-display font-semibold mb-6 md:mb-8 relative z-10 text-white">
                 Summary
@@ -137,7 +137,7 @@ export default function Cart() {
                 </div>
                 <div className="flex justify-between text-sm md:text-base font-medium">
                   <span className="text-gray-400">Shipping</span>
-                  <span className="font-semibold text-[#2E75B6]">
+                  <span className="font-semibold text-[#C5A059]">
                     {totalPrice() > 50 ? "Free Delivery" : "LKR 10.00"}
                   </span>
                 </div>
@@ -161,7 +161,7 @@ export default function Cart() {
 
                 <div className="pt-6 md:pt-8">
                   <button
-                    className="w-full bg-white hover:bg-[#2E75B6] hover:text-[#111] h-14 md:h-16 rounded-full flex items-center justify-center gap-2 md:gap-3 font-semibold text-lg md:text-xl transition-all shadow-lg transform hover:-translate-y-1 text-[#111]"
+                    className="w-full bg-white hover:bg-[#C5A059] hover:text-[#111] h-14 md:h-16 rounded-full flex items-center justify-center gap-2 md:gap-3 font-semibold text-lg md:text-xl transition-all shadow-lg transform hover:-translate-y-1 text-[#111]"
                     onClick={() => navigate("/checkout")}
                   >
                     Checkout via WhatsApp <ArrowRight className="h-4 w-4 md:h-5 md:w-5" />

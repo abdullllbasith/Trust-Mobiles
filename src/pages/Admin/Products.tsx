@@ -39,11 +39,13 @@ export default function AdminProducts({ products = [], categories = [], brands =
     name: "",
     brand: "",
     category: "",
+    description: "",
     price: "",
     discount: "0",
     stock: "0",
   });
   const [imageList, setImageList] = useState<string[]>([]);
+  const [highlightsList, setHighlightsList] = useState<string[]>([""]);
   const [specsList, setSpecsList] = useState<{ key: string; value: string }[]>([{ key: "", value: "" }]);
 
   const handleOpen = (product?: any) => {
@@ -53,11 +55,16 @@ export default function AdminProducts({ products = [], categories = [], brands =
         name: product.name,
         brand: product.brand,
         category: product.category,
+        description: product.description || "",
         price: product.price.toString(),
         discount: product.discount.toString(),
         stock: product.stock.toString(),
       });
       setImageList(normalizeImages(product.images));
+      const existingHighlights = Array.isArray(product.highlights)
+        ? product.highlights.filter((h: unknown) => String(h || "").trim())
+        : [];
+      setHighlightsList(existingHighlights.length ? existingHighlights.map(String) : [""]);
       const existingSpecs = product.specs || {};
       const specsArray = Object.keys(existingSpecs).length > 0 
         ? Object.entries(existingSpecs).map(([key, value]) => ({ key, value: String(value) }))
@@ -69,11 +76,13 @@ export default function AdminProducts({ products = [], categories = [], brands =
         name: "",
         brand: "",
         category: "",
+        description: "",
         price: "",
         discount: "0",
         stock: "0",
       });
       setImageList([]);
+      setHighlightsList([""]);
       setSpecsList([{ key: "", value: "" }]);
     }
     setIsModalOpen(true);
@@ -98,6 +107,8 @@ export default function AdminProducts({ products = [], categories = [], brands =
       const body = {
         ...formData,
         name: formData.name.trim(),
+        description: formData.description.trim(),
+        highlights: highlightsList.map((h) => h.trim()).filter(Boolean),
         images: imageList,
         specs: specsObj,
       };
@@ -241,154 +252,214 @@ export default function AdminProducts({ products = [], categories = [], brands =
       </CardContent>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] max-w-5xl overflow-y-auto p-6 sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>
               {editingId ? "Edit Product" : "Add New Product"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <select
-                  className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value, brand: "" })
-                  }
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat: any) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Brand</Label>
-                <select
-                  className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
-                  value={formData.brand}
-                  onChange={(e) =>
-                    setFormData({ ...formData, brand: e.target.value })
-                  }
-                  required
-                  disabled={!formData.category}
-                >
-                  <option value="">
-                    {formData.category ? "Select Brand" : "Select Category First"}
-                  </option>
-                  {availableBrands.map((brand: any) => (
-                    <option key={brand.id} value={brand.name}>
-                      {brand.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Stock</Label>
-                <Input
-                  type="number"
-                  value={formData.stock}
-                  onChange={(e) =>
-                    setFormData({ ...formData, stock: e.target.value })
-                  }
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Price (LKR)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Discount (%)</Label>
-                <Input
-                  type="number"
-                  value={formData.discount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, discount: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <ProductImageManager images={imageList} onChange={setImageList} />
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <Label>Specifications</Label>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setSpecsList([...specsList, { key: "", value: "" }])}
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add Spec
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
-                {specsList.map((spec, index) => (
-                  <div key={index} className="flex items-center gap-2">
+          <form onSubmit={handleSave} className="space-y-5">
+            <div className="grid gap-5 lg:grid-cols-2">
+              {/* Left column — basics */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Name</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <select
+                      className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={formData.category}
+                      onChange={(e) =>
+                        setFormData({ ...formData, category: e.target.value, brand: "" })
+                      }
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map((cat: any) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Brand</Label>
+                    <select
+                      className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+                      value={formData.brand}
+                      onChange={(e) =>
+                        setFormData({ ...formData, brand: e.target.value })
+                      }
+                      required
+                      disabled={!formData.category}
+                    >
+                      <option value="">
+                        {formData.category ? "Select Brand" : "Select Category First"}
+                      </option>
+                      {availableBrands.map((brand: any) => (
+                        <option key={brand.id} value={brand.name}>
+                          {brand.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Stock</Label>
                     <Input
-                      placeholder="Name (e.g. Color)"
-                      value={spec.key}
-                      onChange={(e) => {
-                        const newList = [...specsList];
-                        newList[index].key = e.target.value;
-                        setSpecsList(newList);
-                      }}
+                      type="number"
+                      value={formData.stock}
+                      onChange={(e) =>
+                        setFormData({ ...formData, stock: e.target.value })
+                      }
+                      required
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Price (LKR)</Label>
                     <Input
-                      placeholder="Value (e.g. Black)"
-                      value={spec.value}
-                      onChange={(e) => {
-                        const newList = [...specsList];
-                        newList[index].value = e.target.value;
-                        setSpecsList(newList);
-                      }}
+                      type="number"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={(e) =>
+                        setFormData({ ...formData, price: e.target.value })
+                      }
+                      required
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Discount (%)</Label>
+                    <Input
+                      type="number"
+                      value={formData.discount}
+                      onChange={(e) =>
+                        setFormData({ ...formData, discount: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <textarea
+                    className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    placeholder="Shown on the product page Description tab. Leave blank to use the default store text."
+                  />
+                </div>
+                <ProductImageManager images={imageList} onChange={setImageList} />
+              </div>
+
+              {/* Right column — highlights & specs */}
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <Label>Highlights</Label>
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-red-500 shrink-0"
-                      onClick={() => {
-                        const newList = specsList.filter((_, i) => i !== index);
-                        setSpecsList(newList.length ? newList : [{ key: "", value: "" }]);
-                      }}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setHighlightsList([...highlightsList, ""])}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Plus className="w-4 h-4 mr-1" /> Add Highlight
                     </Button>
                   </div>
-                ))}
+                  <p className="text-xs text-muted-foreground">
+                    Checklist items under the description. Leave empty for the default store list.
+                  </p>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
+                    {highlightsList.map((line, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          placeholder="e.g. 100% authentic product"
+                          value={line}
+                          onChange={(e) => {
+                            const next = [...highlightsList];
+                            next[index] = e.target.value;
+                            setHighlightsList(next);
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 shrink-0"
+                          onClick={() => {
+                            const next = highlightsList.filter((_, i) => i !== index);
+                            setHighlightsList(next.length ? next : [""]);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <Label>Specifications</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSpecsList([...specsList, { key: "", value: "" }])}
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Add Spec
+                    </Button>
+                  </div>
+                  <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2">
+                    {specsList.map((spec, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          placeholder="Name (e.g. Color)"
+                          value={spec.key}
+                          onChange={(e) => {
+                            const newList = [...specsList];
+                            newList[index].key = e.target.value;
+                            setSpecsList(newList);
+                          }}
+                        />
+                        <Input
+                          placeholder="Value (e.g. Black)"
+                          value={spec.value}
+                          onChange={(e) => {
+                            const newList = [...specsList];
+                            newList[index].value = e.target.value;
+                            setSpecsList(newList);
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 shrink-0"
+                          onClick={() => {
+                            const newList = specsList.filter((_, i) => i !== index);
+                            setSpecsList(newList.length ? newList : [{ key: "", value: "" }]);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-4">
+
+            <div className="flex justify-end gap-2 border-t pt-4">
               <Button
                 type="button"
                 variant="outline"

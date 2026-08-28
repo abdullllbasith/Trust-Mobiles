@@ -1,56 +1,87 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuthStore } from "@/store/authStore";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Box, Users, ShoppingCart, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetchArray, ApiError } from "@/lib/api";
 import AdminProducts from "./Products";
-import AdminOrders from "./Orders";
 import AdminUsers from "./Users";
 import AdminAdvertisements from "./Advertisements";
 import AdminCategories from "./Categories";
 import AdminBrands from "./Brands";
+import AdminHappyCustomers from "./HappyCustomers";
+import type { AdminPermissionId } from "@/lib/permissions";
+
+const TAB_PERMISSION: Record<string, AdminPermissionId> = {
+  products: "inventory",
+  categories: "categories",
+  brands: "brands",
+  users: "users",
+  ads: "promotions",
+  happy: "happy_customers",
+};
 
 export default function AdminDashboard() {
-  const { token } = useAuthStore();
+  const { token, can } = useAuthStore();
   const [products, setProducts] = useState<any[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const allowedTabs = useMemo(
+    () =>
+      (Object.keys(TAB_PERMISSION) as Array<keyof typeof TAB_PERMISSION>).filter(
+        (tab) => can(TAB_PERMISSION[tab]),
+      ),
+    [can, token],
+  );
+
+  const defaultTab = allowedTabs[0] || "products";
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Load public catalog data independently from auth-protected data so one
-      // failed auth call cannot wipe categories/products/brands from the UI.
-      const [prodResult, catResult, brandResult, ordResult, usrResult] =
-        await Promise.allSettled([
-          apiFetchArray("/api/products", { fallbackError: "Failed to load products" }),
-          apiFetchArray("/api/categories", { fallbackError: "Failed to load categories" }),
-          apiFetchArray("/api/brands", { fallbackError: "Failed to load brands" }),
-          apiFetchArray("/api/orders", { auth: true, fallbackError: "Failed to load orders" }),
-          apiFetchArray("/api/users", { auth: true, fallbackError: "Failed to load customers" }),
-        ]);
+      const tasks: Array<Promise<void>> = [];
 
-      const unwrap = <T,>(result: PromiseSettledResult<T[]>, label: string): T[] => {
-        if (result.status === "fulfilled") return result.value;
-        console.error(label, result.reason);
-        const message =
-          result.reason instanceof ApiError
-            ? result.reason.message
-            : `Failed to load ${label}`;
-        toast.error(message);
-        return [];
-      };
+      if (can("inventory") || can("categories") || can("brands")) {
+        tasks.push(
+          apiFetchArray("/api/products", { fallbackError: "Failed to load products" })
+            .then(setProducts)
+            .catch((err) => {
+              toast.error(err instanceof ApiError ? err.message : "Failed to load products");
+              setProducts([]);
+            }),
+        );
+        tasks.push(
+          apiFetchArray("/api/categories", { fallbackError: "Failed to load categories" })
+            .then(setCategories)
+            .catch((err) => {
+              toast.error(err instanceof ApiError ? err.message : "Failed to load categories");
+              setCategories([]);
+            }),
+        );
+        tasks.push(
+          apiFetchArray("/api/brands", { fallbackError: "Failed to load brands" })
+            .then(setBrands)
+            .catch((err) => {
+              toast.error(err instanceof ApiError ? err.message : "Failed to load brands");
+              setBrands([]);
+            }),
+        );
+      }
 
-      setProducts(unwrap(prodResult, "products"));
-      setCategories(unwrap(catResult, "categories"));
-      setBrands(unwrap(brandResult, "brands"));
-      setOrders(unwrap(ordResult, "orders"));
-      setUsers(unwrap(usrResult, "customers"));
+      if (can("users")) {
+        tasks.push(
+          apiFetchArray("/api/users", { auth: true, fallbackError: "Failed to load users" })
+            .then(setUsers)
+            .catch((err) => {
+              toast.error(err instanceof ApiError ? err.message : "Failed to load users");
+              setUsers([]);
+            }),
+        );
+      }
+
+      await Promise.all(tasks);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load admin data. Please refresh or log in again.");
@@ -63,179 +94,145 @@ export default function AdminDashboard() {
     if (token) fetchData();
   }, [token]);
 
-  const totalRevenue = orders.reduce(
-    (total, order) => total + (Number(order.totalPrice) || 0),
-    0,
-  );
+  if (allowedTabs.length === 0) {
+    return (
+      <div className="flex-1 bg-gray-50/50 min-h-screen py-16 px-4 text-center">
+        <h1 className="text-2xl font-display font-bold text-[#1C1C1C] mb-2">
+          No permissions assigned
+        </h1>
+        <p className="text-gray-500">
+          Ask a full admin to grant you access to at least one admin section.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 bg-gray-50/50 min-h-screen py-8 md:py-10">
       <div className="w-full max-w-[1800px] mx-auto px-4 md:px-8 lg:px-12">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-[#0D162B] mb-2">Trust Mobile Admin</h1>
+            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-[#1C1C1C] mb-2">
+              Trust Mobile Admin
+            </h1>
             <p className="text-gray-500 text-base md:text-lg">
-              Manage inventory, WhatsApp orders, and promotions.
+              Manage inventory, users, and promotions.
             </p>
           </div>
         </div>
 
         <Tabs
-          defaultValue="overview"
+          key={defaultTab}
+          defaultValue={defaultTab}
           orientation="vertical"
           className="flex flex-col lg:flex-row gap-8 lg:gap-12"
         >
           <TabsList className="bg-transparent lg:bg-white lg:border lg:border-gray-100 lg:shadow-sm w-full lg:w-72 flex flex-row lg:flex-col justify-start p-0 lg:p-4 h-fit gap-2 lg:rounded-3xl overflow-x-auto hide-scrollbar shrink-0">
-            <TabsTrigger
-              value="overview"
-              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
-            >
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="products"
-              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
-            >
-              Inventory
-            </TabsTrigger>
-            <TabsTrigger
-              value="categories"
-              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
-            >
-              Categories
-            </TabsTrigger>
-            <TabsTrigger
-              value="brands"
-              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
-            >
-              Brands
-            </TabsTrigger>
-            <TabsTrigger
-              value="orders"
-              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
-            >
-              Orders
-            </TabsTrigger>
-            <TabsTrigger
-              value="users"
-              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
-            >
-              Customers (CRM)
-            </TabsTrigger>
-            <TabsTrigger
-              value="ads"
-              className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
-            >
-              Promotions
-            </TabsTrigger>
+            {can("inventory") && (
+              <TabsTrigger
+                value="products"
+                className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
+              >
+                Inventory
+              </TabsTrigger>
+            )}
+            {can("categories") && (
+              <TabsTrigger
+                value="categories"
+                className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
+              >
+                Categories
+              </TabsTrigger>
+            )}
+            {can("brands") && (
+              <TabsTrigger
+                value="brands"
+                className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
+              >
+                Brands
+              </TabsTrigger>
+            )}
+            {can("users") && (
+              <TabsTrigger
+                value="users"
+                className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
+              >
+                User Roles
+              </TabsTrigger>
+            )}
+            {can("promotions") && (
+              <TabsTrigger
+                value="ads"
+                className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
+              >
+                Promotions
+              </TabsTrigger>
+            )}
+            {can("happy_customers") && (
+              <TabsTrigger
+                value="happy"
+                className="w-auto lg:w-full justify-start py-3 px-5 font-semibold text-sm lg:text-base rounded-full lg:rounded-2xl data-[state=active]:bg-[#111] data-[state=active]:text-white data-[state=active]:shadow-md transition-all whitespace-nowrap"
+              >
+                Happy Customers
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <div className="flex-1 overflow-hidden min-w-0">
-            <TabsContent value="overview" className="mt-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <Card className="rounded-3xl shadow-sm border-gray-100 hover:shadow-md transition-shadow">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-500">
-                      Total Revenue
-                    </CardTitle>
-                    <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center">
-                      <Activity className="h-5 w-5" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-display font-bold text-gray-900 mt-2">
-                      LKR {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="rounded-3xl shadow-sm border-gray-100 hover:shadow-md transition-shadow">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-500">
-                      Total Orders
-                    </CardTitle>
-                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-                      <ShoppingCart className="h-5 w-5" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-display font-bold text-gray-900 mt-2">{orders.length}</div>
-                  </CardContent>
-                </Card>
-                <Card className="rounded-3xl shadow-sm border-gray-100 hover:shadow-md transition-shadow">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-500">
-                      Products
-                    </CardTitle>
-                    <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center">
-                      <Box className="h-5 w-5" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-display font-bold text-gray-900 mt-2">{products.length}</div>
-                  </CardContent>
-                </Card>
-                <Card className="rounded-3xl shadow-sm border-gray-100 hover:shadow-md transition-shadow">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-500">
-                      Customers
-                    </CardTitle>
-                    <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center">
-                      <Users className="h-5 w-5" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-display font-bold text-gray-900 mt-2">{users.length}</div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
+            {can("inventory") && (
+              <TabsContent value="products" className="mt-0">
+                <AdminProducts
+                  products={products}
+                  categories={categories}
+                  brands={brands}
+                  loading={loading}
+                  fetchData={fetchData}
+                />
+              </TabsContent>
+            )}
 
-            <TabsContent value="products" className="mt-0">
-              <AdminProducts
-                products={products}
-                categories={categories}
-                brands={brands}
-                loading={loading}
-                fetchData={fetchData}
-              />
-            </TabsContent>
+            {can("categories") && (
+              <TabsContent value="categories" className="mt-0">
+                <AdminCategories
+                  categories={categories}
+                  loading={loading}
+                  fetchData={fetchData}
+                />
+              </TabsContent>
+            )}
 
-            <TabsContent value="categories" className="mt-0">
-              <AdminCategories
-                categories={categories}
-                loading={loading}
-                fetchData={fetchData}
-              />
-            </TabsContent>
+            {can("brands") && (
+              <TabsContent value="brands" className="mt-0">
+                <AdminBrands
+                  brands={brands}
+                  categories={categories}
+                  loading={loading}
+                  fetchData={fetchData}
+                />
+              </TabsContent>
+            )}
 
-            <TabsContent value="brands" className="mt-0">
-              <AdminBrands
-                brands={brands}
-                categories={categories}
-                loading={loading}
-                fetchData={fetchData}
-              />
-            </TabsContent>
+            {can("users") && (
+              <TabsContent value="users" className="mt-0">
+                <AdminUsers
+                  users={users}
+                  loading={loading}
+                  fetchData={fetchData}
+                />
+              </TabsContent>
+            )}
 
-            <TabsContent value="orders" className="mt-0">
-              <AdminOrders
-                orders={orders}
-                loading={loading}
-                fetchData={fetchData}
-              />
-            </TabsContent>
+            {can("promotions") && (
+              <TabsContent value="ads" className="mt-0">
+                <AdminAdvertisements />
+              </TabsContent>
+            )}
 
-            <TabsContent value="users" className="mt-0">
-              <AdminUsers
-                users={users}
-                loading={loading}
-                fetchData={fetchData}
-              />
-            </TabsContent>
-
-            <TabsContent value="ads" className="mt-0">
-              <AdminAdvertisements />
-            </TabsContent>
+            {can("happy_customers") && (
+              <TabsContent value="happy" className="mt-0">
+                <AdminHappyCustomers />
+              </TabsContent>
+            )}
           </div>
         </Tabs>
       </div>
