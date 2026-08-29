@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { GripVertical, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { compressImageFile } from "@/lib/compressImage";
 
 type ProductImageManagerProps = {
   images: string[];
@@ -12,30 +14,30 @@ export function ProductImageManager({ images, onChange }: ProductImageManagerPro
   const inputRef = useRef<HTMLInputElement>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const addFiles = (files: FileList | File[]) => {
+  const addFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter((file) => file.type.startsWith("image/"));
     if (fileArray.length === 0) return;
 
-    let pending = fileArray.length;
-    const newImages: string[] = new Array(fileArray.length);
-
-    fileArray.forEach((file, index) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        newImages[index] = reader.result as string;
-        pending -= 1;
-        if (pending === 0) {
-          onChange([...images, ...newImages.filter(Boolean)]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    setUploading(true);
+    try {
+      const compressed = await Promise.all(
+        fileArray.map((file) =>
+          compressImageFile(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.8 }),
+        ),
+      );
+      onChange([...images, ...compressed.filter(Boolean)]);
+    } catch {
+      toast.error("Could not process one or more images");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
-      addFiles(e.target.files);
+      void addFiles(e.target.files);
       e.target.value = "";
     }
   };
@@ -74,10 +76,11 @@ export function ProductImageManager({ images, onChange }: ProductImageManagerPro
         type="button"
         variant="outline"
         className="w-full gap-2"
+        disabled={uploading}
         onClick={() => inputRef.current?.click()}
       >
         <Upload className="h-4 w-4" />
-        Upload Images
+        {uploading ? "Compressing…" : "Upload Images"}
       </Button>
 
       {images.length > 0 && (

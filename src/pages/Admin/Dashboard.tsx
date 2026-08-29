@@ -45,7 +45,7 @@ export default function AdminDashboard() {
 
       if (can("inventory") || can("categories") || can("brands")) {
         tasks.push(
-          apiFetchArray("/api/products", { fallbackError: "Failed to load products" })
+          apiFetchArray("/api/products?full=1", { fallbackError: "Failed to load products" })
             .then(setProducts)
             .catch((err) => {
               toast.error(err instanceof ApiError ? err.message : "Failed to load products");

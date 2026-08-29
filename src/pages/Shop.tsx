@@ -84,8 +84,10 @@ export default function Shop() {
     setLoading(true);
     setLoadError(null);
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
 
-    fetch(`/api/products`)
+    fetch(`/api/products`, { signal: controller.signal })
       .then(async (res) => {
         const data = await res.json().catch(() => null);
         if (!res.ok) {
@@ -103,15 +105,22 @@ export default function Shop() {
         console.error(err);
         if (!cancelled) {
           setProducts([]);
-          setLoadError(err?.message || "Failed to load products");
+          if (err?.name === "AbortError") {
+            setLoadError("Products are taking too long to load. Please try again.");
+          } else {
+            setLoadError(err?.message || "Failed to load products");
+          }
         }
       })
       .finally(() => {
+        window.clearTimeout(timeout);
         if (!cancelled) setLoading(false);
       });
 
     return () => {
       cancelled = true;
+      controller.abort();
+      window.clearTimeout(timeout);
     };
   }, []);
 
@@ -570,10 +579,10 @@ export default function Shop() {
           )}
 
           {loading ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map((n) => (
-                <div key={n} className="surface-card h-[420px] p-4">
-                  <div className="mb-4 h-52 animate-pulse rounded-xl bg-slate-100" />
+                <div key={n} className="surface-card h-[280px] sm:h-[420px] p-3 sm:p-4">
+                  <div className="mb-4 h-32 sm:h-52 animate-pulse rounded-xl bg-slate-100" />
                   <div className="mb-2 h-3 w-1/3 animate-pulse rounded bg-slate-100" />
                   <div className="h-5 w-3/4 animate-pulse rounded bg-slate-100" />
                 </div>
@@ -600,16 +609,16 @@ export default function Shop() {
               </button>
             </div>
           ) : filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
               {filteredProducts.map((product, idx) => {
                 const isWishlisted = isInWishlist(product.id);
 
                 return (
                   <motion.div
                     key={product.id}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25, delay: (idx % 9) * 0.03 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <ProductCard
                       product={product}

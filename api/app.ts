@@ -457,6 +457,53 @@ export const connectDB = async () => {
   mongoCache.conn = await mongoCache.promise;
 };
 
+/** Drop oversized embedded data-URI images that make /api/products crawl.
+ * Runs as a MongoDB aggregation update so huge payloads never leave Atlas.
+ */
+export async function shrinkOversizedProductImages() {
+  const result = await Product.collection.updateMany({}, [
+    {
+      $set: {
+        images: {
+          $filter: {
+            input: { $ifNull: ['$images', []] },
+            as: 'img',
+            cond: {
+              $or: [
+                {
+                  $ne: [
+                    {
+                      $substrBytes: [{ $toString: { $ifNull: ['$$img', ''] } }, 0, 5],
+                    },
+                    'data:',
+                  ],
+                },
+                {
+                  $lte: [
+                    { $strLenBytes: { $toString: { $ifNull: ['$$img', ''] } } },
+                    350000,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+  ]);
+  if (result.modifiedCount > 0) {
+    console.log(`Shrunk oversized images on ${result.modifiedCount} product(s)`);
+    productListCache = null;
+  }
+  return result.modifiedCount;
+}
+
+let productListCache: { at: number; payload: any[] } | null = null;
+
+function invalidateProductListCache() {
+  productListCache = null;
+}
+
 // Health check (useful for verifying Vercel env + DB connectivity)
 app.get('/api/health', async (_req, res) => {
   const missingEnv = getMissingVercelEnvVars();
@@ -580,20 +627,71 @@ app.post('/api/admin/login', async (req, res) => {
 });
 
 // Products
+function coverImageForList(images: unknown): string[] {
+  if (!Array.isArray(images) || images.length === 0) return [];
+  const cover = String(images[0] || '');
+  if (!cover) return [];
+  // Huge base64 uploads make the catalog unusably slow — keep them on detail only.
+  if (cover.startsWith('data:') && cover.length > 350_000) return [];
+  return [cover];
+}
+
+function mapProductDoc(p: any, { fullImages = false }: { fullImages?: boolean } = {}) {
+  const images = Array.isArray(p.images) ? p.images : [];
+  return {
+    id: String(p._id || p.id),
+    name: p.name,
+    brand: p.brand,
+    category: p.category,
+    description: fullImages ? (p.description || '') : undefined,
+    highlights: fullImages ? (p.highlights || []) : undefined,
+    price: p.price,
+    discount: p.discount || 0,
+    stock: p.stock || 0,
+    images: fullImages ? images : coverImageForList(images),
+    specs: p.specs || {},
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  };
+}
+
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 });
-    res.json(products);
+    const full = String(req.query.full || '') === '1';
+
+    if (!full && productListCache && Date.now() - productListCache.at < 60_000) {
+      res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
+      return res.json(productListCache.payload);
+    }
+
+    const products = await Product.find()
+      .select(
+        full
+          ? 'name brand category description highlights price discount stock images specs createdAt updatedAt'
+          : 'name brand category price discount stock images specs createdAt',
+      )
+      .sort({ createdAt: -1 })
+      .lean()
+      .maxTimeMS(12000);
+
+    const payload = products.map((p) => mapProductDoc(p, { fullImages: full }));
+    if (!full) {
+      productListCache = { at: Date.now(), payload };
+    }
+
+    res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
+    res.json(payload);
   } catch (err) {
+    console.error('Error fetching products:', err);
     res.status(500).json({ error: 'Error fetching products' });
   }
 });
 
 app.get('/api/products/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).lean();
     if (!product) return res.status(404).json({ error: 'Product not found' });
-    res.json(product);
+    res.json(mapProductDoc(product, { fullImages: true }));
   } catch (error) {
     res.status(500).json({ error: 'Invalid product ID' });
   }
@@ -623,6 +721,7 @@ app.post('/api/products', ...authenticateAdmin, async (req, res) => {
       images: Array.isArray(images) ? images : [],
       specs: specs || {},
     });
+    invalidateProductListCache();
     res.status(201).json({ id: newProd._id, success: true });
   } catch (error) {
     res.status(500).json({ error: mongoErrorMessage(error, 'Failed to create product') });
@@ -633,6 +732,7 @@ app.delete('/api/products/:id', ...authenticateAdmin, async (req, res) => {
   try {
     const deleted = await Product.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Product not found' });
+    invalidateProductListCache();
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete product' });
@@ -660,6 +760,7 @@ app.put('/api/products/:id', ...authenticateAdmin, async (req, res) => {
       specs: specs || {},
     }, { new: true });
     if (!updated) return res.status(404).json({ error: 'Product not found' });
+    invalidateProductListCache();
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: mongoErrorMessage(error, 'Failed to update product') });

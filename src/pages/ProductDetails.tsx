@@ -48,9 +48,10 @@ export default function ProductDetails() {
   const [aiSource, setAiSource] = useState<"ai" | "inventory" | "">("");
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Hover zoom
+  // Hover zoom — desktop only (fine pointer + real hover)
   const [zooming, setZooming] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+  const [hoverZoomEnabled, setHoverZoomEnabled] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
 
   const { addItem } = useCartStore();
@@ -59,6 +60,17 @@ export default function ProductDetails() {
     isInWishlist,
     removeItem: removeWishlist,
   } = useWishlistStore();
+
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sync = () => {
+      setHoverZoomEnabled(mq.matches);
+      if (!mq.matches) setZooming(false);
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -114,6 +126,7 @@ export default function ProductDetails() {
   }, [id, product?.id]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!hoverZoomEnabled) return;
     const el = imageRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -123,6 +136,14 @@ export default function ProductDetails() {
       x: Math.min(100, Math.max(0, x)),
       y: Math.min(100, Math.max(0, y)),
     });
+  }, [hoverZoomEnabled]);
+
+  const handleMouseEnter = useCallback(() => {
+    if (hoverZoomEnabled) setZooming(true);
+  }, [hoverZoomEnabled]);
+
+  const handleMouseLeave = useCallback(() => {
+    setZooming(false);
   }, []);
 
   const handleAddToCart = (qty = quantity) => {
@@ -234,10 +255,11 @@ export default function ProductDetails() {
           <div className="flex flex-col gap-4">
             <div
               ref={imageRef}
-              className="relative aspect-square overflow-hidden rounded-2xl bg-[#F8F6F1] cursor-zoom-in"
-              onMouseEnter={() => setZooming(true)}
-              onMouseLeave={() => setZooming(false)}
+              className={`relative aspect-square overflow-hidden rounded-2xl bg-[#F8F6F1] ${hoverZoomEnabled ? "cursor-zoom-in" : "cursor-pointer"}`}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
               onMouseMove={handleMouseMove}
+              onTouchStart={() => setZooming(false)}
               onClick={() => setFullscreen(true)}
             >
               {product.discount > 0 && (
@@ -302,9 +324,11 @@ export default function ProductDetails() {
                 }}
               />
 
-              <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-[11px] font-medium text-white">
-                Hover to zoom · Click for fullscreen
-              </div>
+              {hoverZoomEnabled && (
+                <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-[11px] font-medium text-white">
+                  Hover to zoom · Click for fullscreen
+                </div>
+              )}
             </div>
 
             {images.length > 1 && (

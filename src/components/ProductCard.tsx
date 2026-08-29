@@ -69,9 +69,11 @@ export function ProductCard({
             </span>
           )}
           <img
-            src={images[0]}
+            src={images[0] || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect fill='%23F8F6F1' width='400' height='400'/%3E%3C/svg%3E"}
             alt={product.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+            decoding="async"
+            className="product-card-image h-full w-full object-cover transition-transform duration-500"
           />
         </div>
 

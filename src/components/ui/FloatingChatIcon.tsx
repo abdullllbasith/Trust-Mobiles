@@ -1,4 +1,4 @@
-import { MessageCircle, X } from "lucide-react";
+import { MessageCircle, Send, X } from "lucide-react";
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +16,6 @@ function linkLabelFromUrl(url: string): string {
 
 function normalizeAssistantLinks(content: string): string {
   let text = content;
-  // Softora + bare URL variants → short markdown link
   text = text.replace(
     /Softora\s*\(\s*https?:\/\/(?:www\.)?softora\.lk\/?\s*\)/gi,
     "[Softora](https://softora.lk)",
@@ -25,7 +24,6 @@ function normalizeAssistantLinks(content: string): string {
     /(?<!\]\()https?:\/\/(?:www\.)?softora\.lk\/?/gi,
     "[Softora](https://softora.lk)",
   );
-  // Other bare URLs → [hostname](url) unless already markdown
   text = text.replace(
     /(?<!\]\()(https?:\/\/[^\s<>"'\)\]]+)/g,
     (url) => `[${linkLabelFromUrl(url)}](${url.replace(/[.,;:!?)]+$/, "")})`,
@@ -45,7 +43,7 @@ function renderInlineMarkdown(text: string): ReactNode[] {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-semibold text-[#C5A059] underline underline-offset-2 hover:text-[#996515]"
+          className="font-medium text-[#996515] underline decoration-[#C5A059]/50 underline-offset-2 transition-colors hover:text-[#C5A059]"
         >
           {label}
         </a>
@@ -53,7 +51,7 @@ function renderInlineMarkdown(text: string): ReactNode[] {
     }
     if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
       return (
-        <strong key={i} className="font-semibold">
+        <strong key={i} className="font-semibold text-[#1C1C1C]">
           {part.slice(2, -2)}
         </strong>
       );
@@ -71,14 +69,14 @@ function ChatMessageContent({ content }: { content: string }) {
       {lines.map((line, i) => {
         const trimmed = line.trim();
         if (!trimmed) {
-          return <div key={i} className="h-1.5" aria-hidden />;
+          return <div key={i} className="h-1" aria-hidden />;
         }
 
         const numbered = trimmed.match(/^(\d+)\.\s+(.*)$/);
         if (numbered) {
           return (
-            <div key={i} className="pt-1 first:pt-0">
-              <span className="font-semibold text-[#111]">{numbered[1]}.</span>{" "}
+            <div key={i} className="pt-0.5 first:pt-0">
+              <span className="font-semibold text-[#1C1C1C]">{numbered[1]}.</span>{" "}
               {renderInlineMarkdown(numbered[2])}
             </div>
           );
@@ -87,9 +85,9 @@ function ChatMessageContent({ content }: { content: string }) {
         const bullet = trimmed.match(/^[-•*]\s+(.*)$/);
         if (bullet) {
           return (
-            <div key={i} className="pl-3 text-[13px] leading-snug text-[#333]">
-              <span className="mr-1.5 text-[#888]">•</span>
-              {renderInlineMarkdown(bullet[1])}
+            <div key={i} className="flex gap-2 pl-0.5 text-[13px] leading-snug text-[#3F3A34]">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#C5A059]" />
+              <span>{renderInlineMarkdown(bullet[1])}</span>
             </div>
           );
         }
@@ -107,9 +105,9 @@ function ChatMessageContent({ content }: { content: string }) {
 export function FloatingChatIcon() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
     {
-      role: 'assistant',
+      role: "assistant",
       content:
         "Hello! I'm your Trust Mobile shopping assistant. Ask me about phones, prices, or stock.",
     },
@@ -117,47 +115,67 @@ export function FloatingChatIcon() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    const next = Math.min(el.scrollHeight, 120);
+    el.style.height = `${Math.max(next, 44)}px`;
+  }, [input]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const t = window.setTimeout(() => inputRef.current?.focus(), 220);
+      return () => window.clearTimeout(t);
+    }
+  }, [isOpen]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-    
-    const userMsg = { role: 'user' as const, content: input.trim() };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
+
+    const userMsg = { role: "user" as const, content: input.trim() };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
     setIsLoading(true);
 
     try {
-      const payload = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
-      
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: payload })
+      const payload = [...messages, userMsg].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: payload }),
       });
 
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}));
-        throw new Error(errBody.error || 'API Error');
+        throw new Error(errBody.error || "API Error");
       }
 
       const data = await response.json();
       if (data.message) {
         const content =
-          typeof data.message.content === 'string'
+          typeof data.message.content === "string"
             ? data.message.content
-            : data.message.content?.toString?.() || 'No response from assistant.';
-        setMessages(prev => [...prev, { role: 'assistant', content }]);
+            : data.message.content?.toString?.() ||
+              "No response from assistant.";
+        setMessages((prev) => [...prev, { role: "assistant", content }]);
       }
-      
+
       if (
         data.action &&
-        data.action.type === 'navigate' &&
-        typeof data.action.url === 'string' &&
-        data.action.url.startsWith('/product/') &&
+        data.action.type === "navigate" &&
+        typeof data.action.url === "string" &&
+        data.action.url.startsWith("/product/") &&
         userMsg.content.trim().length >= 3
       ) {
         setTimeout(() => {
@@ -165,13 +183,17 @@ export function FloatingChatIcon() {
           setIsOpen(false);
         }, 1500);
       }
-
     } catch (error: any) {
       console.error(error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: error?.message || 'Sorry, I am having trouble connecting to the AI server right now.',
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            error?.message ||
+            "Sorry, I am having trouble connecting to the AI server right now.",
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -179,111 +201,148 @@ export function FloatingChatIcon() {
 
   return (
     <>
-      {/* Floating Button */}
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 md:bottom-10 md:right-10 w-11 h-11 md:w-12 md:h-12 bg-[#1C1C1C] text-white hover:bg-[#C5A059] hover:text-[#1C1C1C] rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] transition-all duration-300 z-50 ${
-          isOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"
+        aria-label="Open AI assistant"
+        className={`fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#1C1C1C] text-white shadow-[0_12px_32px_-12px_rgba(28,28,28,0.55)] transition-all duration-300 hover:bg-[#C5A059] hover:text-[#1C1C1C] md:bottom-10 md:right-10 ${
+          isOpen
+            ? "pointer-events-none scale-75 opacity-0"
+            : "scale-100 opacity-100"
         }`}
       >
-        <MessageCircle className="w-5 h-5" />
+        <MessageCircle className="h-5 w-5" strokeWidth={1.75} />
       </button>
 
-      {/* Chat Box Overlay */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="fixed bottom-6 right-6 md:bottom-10 md:right-10 w-[calc(100vw-3rem)] md:w-96 h-[500px] max-h-[80vh] bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] border border-black/5 z-50 flex flex-col overflow-hidden"
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed bottom-6 right-6 z-50 flex h-[min(560px,78vh)] w-[calc(100vw-2.5rem)] max-w-[400px] flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_24px_64px_-24px_rgba(28,28,28,0.35)] md:bottom-10 md:right-10"
           >
             {/* Header */}
-            <div className="bg-[#111] px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
-                  <MessageCircle className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-display font-semibold text-white">AI Assistant</h3>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="w-1.5 h-1.5 bg-[#C5A059] rounded-full animate-pulse"></span>
-                    <span className="text-white/60 text-xs">Online</span>
+            <div className="relative border-b border-black/[0.04] bg-[#1C1C1C] px-4 py-3.5">
+              <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#C5A059]/60 to-transparent" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/10">
+                    <MessageCircle className="h-4 w-4 text-[#C5A059]" strokeWidth={1.75} />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="truncate font-display text-[15px] font-semibold tracking-tight text-white">
+                      Shopping Assistant
+                    </h3>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#C5A059] opacity-40" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#C5A059]" />
+                      </span>
+                      <span className="text-[11px] font-medium text-white/55">
+                        Online · Trust Mobile
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  aria-label="Close chat"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" strokeWidth={1.75} />
+                </button>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-white/60 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
-            {/* Chat Body */}
-            <div className="flex-1 bg-[#F8F6F1] p-6 overflow-y-auto">
-              <div className="flex flex-col gap-4">
-                {messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`px-5 py-3.5 rounded-2xl text-sm shadow-sm max-w-[85%] leading-relaxed ${
-                      msg.role === 'user' 
-                        ? 'bg-[#111] text-white rounded-tr-sm whitespace-pre-wrap' 
-                        : 'bg-white text-[#111] rounded-tl-sm'
-                    }`}>
-                      {msg.role === 'assistant' ? (
-                        <ChatMessageContent content={msg.content} />
-                      ) : (
-                        msg.content
-                      )}
-                    </div>
-                  </div>
-                ))}
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto bg-[#FAF9F7] px-3.5 py-4 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black/10">
+              <div className="flex flex-col gap-3">
+                <AnimatePresence initial={false}>
+                  {messages.map((msg, i) => (
+                    <motion.div
+                      key={`${msg.role}-${i}-${msg.content.slice(0, 24)}`}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[88%] px-3.5 py-2.5 text-[13.5px] leading-relaxed shadow-[0_1px_2px_rgba(28,28,28,0.04)] ${
+                          msg.role === "user"
+                            ? "rounded-2xl rounded-br-md bg-[#1C1C1C] text-white whitespace-pre-wrap"
+                            : "rounded-2xl rounded-bl-md border border-black/[0.04] bg-white text-[#2A2621]"
+                        }`}
+                      >
+                        {msg.role === "assistant" ? (
+                          <ChatMessageContent content={msg.content} />
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
 
                 {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-white px-5 py-3.5 rounded-2xl rounded-tl-sm text-sm text-[#111] shadow-sm max-w-[85%] flex items-center gap-2">
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-start"
+                  >
+                    <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-black/[0.04] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(28,28,28,0.04)]">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#C5A059]" />
+                      <span
+                        className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#C5A059]"
+                        style={{ animationDelay: "160ms" }}
+                      />
+                      <span
+                        className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#C5A059]"
+                        style={{ animationDelay: "320ms" }}
+                      />
                     </div>
-                  </div>
+                  </motion.div>
                 )}
                 <div ref={messagesEndRef} />
               </div>
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 bg-white border-t border-black/5">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
+            {/* Composer */}
+            <div className="border-t border-black/[0.05] bg-white px-3 pb-3 pt-2.5">
+              <div className="flex items-end gap-2 rounded-2xl border border-black/[0.08] bg-[#FAF9F7] p-1.5 transition-colors focus-within:border-[#C5A059]/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#C5A059]/15">
+                <textarea
+                  ref={inputRef}
+                  rows={1}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Ask me anything..."
-                  className="flex-1 bg-[#F8F6F1] border border-transparent rounded-full px-5 py-3 text-base focus:outline-none focus:border-black/10 focus:bg-white transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="Ask about a phone, brand, or price…"
+                  className="max-h-[120px] min-h-[40px] flex-1 resize-none overflow-y-auto bg-transparent px-3 py-2.5 text-[14px] leading-snug text-[#1C1C1C] outline-none placeholder:text-stone-400 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 />
-                <button 
+                <button
+                  type="button"
                   onClick={handleSend}
-                  disabled={isLoading}
-                  className="w-11 h-11 bg-[#1C1C1C] text-white hover:bg-[#C5A059] hover:text-[#1C1C1C] disabled:opacity-50 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
+                  disabled={isLoading || !input.trim()}
+                  aria-label="Send message"
+                  className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1C1C1C] text-white transition-all hover:bg-[#C5A059] hover:text-[#1C1C1C] disabled:cursor-not-allowed disabled:opacity-35"
                 >
-                  <span className="transform rotate-45 -ml-0.5 mt-0.5">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="22" y1="2" x2="11" y2="13"></line>
-                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
-                  </span>
+                  <Send className="h-3.5 w-3.5" strokeWidth={2} />
                 </button>
               </div>
-              <p className="mt-2 text-center text-[10px] text-stone-400">
+              <p className="mt-2 text-center text-[10px] tracking-wide text-stone-400">
                 Powered by{" "}
                 <a
                   href="https://softora.lk"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-[#C5A059] hover:underline"
+                  className="font-medium text-[#C5A059] transition-colors hover:text-[#996515]"
                 >
                   Softora
                 </a>

@@ -21,8 +21,7 @@ export default function Checkout() {
     note: "",
   });
 
-  const shipping = totalPrice() > 50 ? 0 : 10;
-  const grandTotal = totalPrice() + shipping;
+  const grandTotal = totalPrice();
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -295,12 +294,6 @@ export default function Checkout() {
                   <span className="text-gray-400">Subtotal</span>
                   <span className="font-semibold text-white">
                     LKR {totalPrice().toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm md:text-base font-medium">
-                  <span className="text-gray-400">Shipping</span>
-                  <span className="font-semibold text-[#F3EBD8]">
-                    {shipping === 0 ? "Free Delivery" : "LKR 10.00"}
                   </span>
                 </div>
               </div>

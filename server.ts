@@ -1,6 +1,6 @@
 import path from 'path';
 import express from 'express';
-import app, { connectDB } from './api/app.js';
+import app, { connectDB, shrinkOversizedProductImages } from './api/app.js';
 
 const PORT = 3000;
 
@@ -24,6 +24,12 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    // Shrink huge embedded photos after listen so the first catalog request isn't blocked by startup work.
+    setTimeout(() => {
+      void shrinkOversizedProductImages().catch((err) =>
+        console.warn('Image shrink skipped:', err?.message || err),
+      );
+    }, 1500);
   });
 }
 

@@ -127,8 +127,14 @@
   .product-card {
     @apply relative flex h-full flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-sm transition-all duration-300;
   }
-  .product-card:hover {
-    @apply -translate-y-0.5 border-[#C5A059]/40 shadow-[0_18px_40px_-16px_rgba(28,28,28,0.16)];
+
+  @media (hover: hover) and (pointer: fine) {
+    .product-card:hover {
+      @apply -translate-y-0.5 border-[#C5A059]/40 shadow-[0_18px_40px_-16px_rgba(28,28,28,0.16)];
+    }
+    .product-card:hover .product-card-image {
+      transform: scale(1.05);
+    }
   }
 
   .surface-card {
