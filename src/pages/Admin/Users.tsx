@@ -24,9 +24,10 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Edit, Trash2, Shield, Plus } from "lucide-react";
+import { Loader2, Edit, Trash2, Shield, Plus, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiFetch } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 import {
   ADMIN_PERMISSIONS,
   ALL_ADMIN_PERMISSION_IDS,
@@ -44,12 +45,23 @@ const emptyForm = {
 };
 
 export default function AdminUsers({ users = [], loading, fetchData }: any) {
+  const { user: currentUser, isSuperAdmin } = useAuthStore();
+  const amSuperAdmin = isSuperAdmin();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
 
   const isAdmin = (role: string) => String(role || "").toLowerCase() === "admin";
+  const isParent = (user: any) => Boolean(user?.isSuperAdmin);
+
+  const canDeleteUser = (user: any) => {
+    if (!user?.id) return false;
+    if (String(user.id) === String(currentUser?.id)) return false;
+    if (isParent(user)) return false;
+    if (isAdmin(user.role)) return amSuperAdmin;
+    return true;
+  };
 
   const handleOpenCreate = () => {
     setEditingUser(null);
@@ -120,12 +132,22 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
 
     const allSelected =
       formData.permissions.length === ALL_ADMIN_PERMISSION_IDS.length;
-    // Empty permissions on server = full access
+
+    // Empty permissions on server = full access — only parent super admin may grant that
+    if (formData.role === "admin" && allSelected && !amSuperAdmin && !isParent(editingUser)) {
+      toast.error(
+        "Only the parent super admin can grant full access. Select specific permissions instead.",
+      );
+      return;
+    }
+
     const permissionsPayload =
       formData.role === "admin"
-        ? allSelected
+        ? allSelected && amSuperAdmin
           ? []
-          : formData.permissions
+          : allSelected
+            ? [...ALL_ADMIN_PERMISSION_IDS]
+            : formData.permissions
         : [];
 
     setSaving(true);
@@ -135,11 +157,13 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
           name: formData.name.trim(),
           email: formData.email.trim(),
           role: isAdmin(editingUser.role) ? "admin" : formData.role,
-          permissions: isAdmin(editingUser.role)
-            ? permissionsPayload
-            : formData.role === "admin"
+          permissions: isParent(editingUser)
+            ? []
+            : isAdmin(editingUser.role)
               ? permissionsPayload
-              : [],
+              : formData.role === "admin"
+                ? permissionsPayload
+                : [],
         };
         if (formData.password.trim().length >= 6) {
           body.password = formData.password.trim();
@@ -167,7 +191,7 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
         toast.success("User created");
       }
       setIsModalOpen(false);
-      fetchData();
+      fetchData({ silent: true });
     } catch (err: any) {
       toast.error(err.message || "Error saving user");
     } finally {
@@ -175,20 +199,26 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
     }
   };
 
-  const handleDelete = async (id: string, role: string) => {
-    if (isAdmin(role)) {
-      toast.error("Admin accounts cannot be deleted.");
+  const handleDelete = async (user: any) => {
+    if (!canDeleteUser(user)) {
+      toast.error(
+        isParent(user)
+          ? "The parent super admin cannot be deleted."
+          : isAdmin(user.role)
+            ? "Only the parent super admin can delete other admins."
+            : "You cannot delete this user.",
+      );
       return;
     }
-    if (!confirm("Are you sure you want to delete this user?")) return;
+    if (!confirm(`Delete ${user.name || "this user"}? This cannot be undone.`)) return;
     try {
-      await apiFetch(`/api/users/${id}`, {
+      await apiFetch(`/api/users/${user.id}`, {
         method: "DELETE",
         auth: true,
         fallbackError: "Failed to delete user",
       });
       toast.success("User deleted");
-      fetchData();
+      fetchData({ silent: true });
     } catch (err: any) {
       toast.error(err.message || "Error deleting user");
     }
@@ -196,6 +226,7 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
 
   const permissionLabels = (user: any) => {
     if (!isAdmin(user.role)) return "—";
+    if (isParent(user)) return "Parent super admin";
     const effective = effectivePermissions(user.permissions);
     if (
       !user.permissions?.length ||
@@ -214,8 +245,8 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
         <div>
           <CardTitle>User Roles</CardTitle>
           <CardDescription>
-            Add staff accounts and assign which admin sections they can access.
-            Admin accounts cannot be deleted.
+            Assign section access for staff. Only the parent super admin is
+            protected from deletion and can remove other admins.
           </CardDescription>
         </div>
         <Button className="gap-2 shrink-0" onClick={handleOpenCreate}>
@@ -228,7 +259,7 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-hidden bg-white">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -242,6 +273,8 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
               <TableBody>
                 {users.map((user: any) => {
                   const adminUser = isAdmin(user.role);
+                  const parent = isParent(user);
+                  const allowDelete = canDeleteUser(user);
                   return (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.name}</TableCell>
@@ -250,13 +283,19 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
                         <Badge
                           variant={adminUser ? "default" : "secondary"}
                           className={
-                            adminUser
-                              ? "gap-1 bg-[#C5A059] text-[#1C1C1C] hover:bg-[#C5A059]"
-                              : ""
+                            parent
+                              ? "gap-1 bg-[#1C1C1C] text-[#F3EBD8] hover:bg-[#1C1C1C]"
+                              : adminUser
+                                ? "gap-1 bg-[#C5A059] text-[#1C1C1C] hover:bg-[#C5A059]"
+                                : ""
                           }
                         >
-                          {adminUser && <Shield className="h-3 w-3" />}
-                          {user.role}
+                          {parent ? (
+                            <Crown className="h-3 w-3" />
+                          ) : (
+                            adminUser && <Shield className="h-3 w-3" />
+                          )}
+                          {parent ? "Super Admin" : user.role}
                         </Badge>
                       </TableCell>
                       <TableCell className="max-w-[220px] text-sm text-muted-foreground">
@@ -272,28 +311,29 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
-                          {adminUser ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled
-                              className="text-stone-300 cursor-not-allowed"
-                              title="Admin accounts cannot be deleted"
-                              aria-label="Delete disabled for admin"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-red-500"
-                              onClick={() => handleDelete(user.id, user.role)}
-                              aria-label="Delete user"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={!allowDelete}
+                            className={
+                              allowDelete
+                                ? "text-red-500"
+                                : "text-stone-300 cursor-not-allowed"
+                            }
+                            title={
+                              parent
+                                ? "Parent super admin cannot be deleted"
+                                : !allowDelete && adminUser
+                                  ? "Only the parent super admin can delete other admins"
+                                  : "Delete user"
+                            }
+                            onClick={() => allowDelete && handleDelete(user)}
+                            aria-label={
+                              allowDelete ? "Delete user" : "Delete disabled"
+                            }
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -365,9 +405,15 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
               <Label>Role</Label>
               {editingUser && isAdmin(editingUser.role) ? (
                 <>
-                  <Input value="admin" disabled className="bg-muted" />
+                  <Input
+                    value={isParent(editingUser) ? "super admin" : "admin"}
+                    disabled
+                    className="bg-muted"
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Admin role is locked and cannot be removed.
+                    {isParent(editingUser)
+                      ? "Parent super admin — protected and always has full access."
+                      : "Admin role is locked and cannot be removed."}
                   </p>
                 </>
               ) : (
@@ -391,7 +437,7 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
               )}
             </div>
 
-            {formData.role === "admin" && (
+            {formData.role === "admin" && !isParent(editingUser) && (
               <div className="space-y-3 rounded-lg border p-3">
                 <div className="flex items-center justify-between gap-2">
                   <Label>Permissions</Label>
@@ -408,6 +454,12 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
                     All
                   </label>
                 </div>
+                {!amSuperAdmin && (
+                  <p className="text-xs text-muted-foreground">
+                    Checking “All” grants every section listed below. Only the
+                    parent super admin can create another full-access admin.
+                  </p>
+                )}
                 <div className="space-y-2">
                   {ADMIN_PERMISSIONS.map((perm) => (
                     <label
@@ -432,6 +484,12 @@ export default function AdminUsers({ users = [], loading, fetchData }: any) {
                   ))}
                 </div>
               </div>
+            )}
+
+            {isParent(editingUser) && (
+              <p className="text-xs text-muted-foreground rounded-lg border bg-muted/40 px-3 py-2">
+                Parent super admin always has full access to every section.
+              </p>
             )}
 
             <div className="flex justify-end gap-2 pt-2">

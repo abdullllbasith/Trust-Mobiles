@@ -38,14 +38,18 @@ export default function AdminDashboard() {
 
   const defaultTab = allowedTabs[0] || "products";
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+    if (!silent) setLoading(true);
     try {
       const tasks: Array<Promise<void>> = [];
 
       if (can("inventory") || can("categories") || can("brands")) {
         tasks.push(
-          apiFetchArray("/api/products?full=1", { fallbackError: "Failed to load products" })
+          apiFetchArray("/api/products?full=1", {
+            fallbackError: "Failed to load products",
+            cache: "no-store",
+          })
             .then(setProducts)
             .catch((err) => {
               toast.error(err instanceof ApiError ? err.message : "Failed to load products");
@@ -53,7 +57,10 @@ export default function AdminDashboard() {
             }),
         );
         tasks.push(
-          apiFetchArray("/api/categories", { fallbackError: "Failed to load categories" })
+          apiFetchArray("/api/categories", {
+            fallbackError: "Failed to load categories",
+            cache: "no-store",
+          })
             .then(setCategories)
             .catch((err) => {
               toast.error(err instanceof ApiError ? err.message : "Failed to load categories");
@@ -61,7 +68,10 @@ export default function AdminDashboard() {
             }),
         );
         tasks.push(
-          apiFetchArray("/api/brands", { fallbackError: "Failed to load brands" })
+          apiFetchArray("/api/brands", {
+            fallbackError: "Failed to load brands",
+            cache: "no-store",
+          })
             .then(setBrands)
             .catch((err) => {
               toast.error(err instanceof ApiError ? err.message : "Failed to load brands");
@@ -72,7 +82,11 @@ export default function AdminDashboard() {
 
       if (can("users")) {
         tasks.push(
-          apiFetchArray("/api/users", { auth: true, fallbackError: "Failed to load users" })
+          apiFetchArray("/api/users", {
+            auth: true,
+            fallbackError: "Failed to load users",
+            cache: "no-store",
+          })
             .then(setUsers)
             .catch((err) => {
               toast.error(err instanceof ApiError ? err.message : "Failed to load users");
@@ -86,7 +100,7 @@ export default function AdminDashboard() {
       console.error(err);
       toast.error("Failed to load admin data. Please refresh or log in again.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -108,24 +122,13 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex-1 bg-gray-50/50 min-h-screen py-8 md:py-10">
+    <div className="flex-1 bg-gray-50/50 min-h-[calc(100vh-72px)] py-8 md:py-10 overscroll-none">
       <div className="w-full max-w-[1800px] mx-auto px-4 md:px-8 lg:px-12">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-[#1C1C1C] mb-2">
-              Trust Mobile Admin
-            </h1>
-            <p className="text-gray-500 text-base md:text-lg">
-              Manage inventory, users, and promotions.
-            </p>
-          </div>
-        </div>
-
         <Tabs
           key={defaultTab}
           defaultValue={defaultTab}
           orientation="vertical"
-          className="flex flex-col lg:flex-row gap-8 lg:gap-12"
+          className="flex flex-col lg:flex-row gap-8 lg:gap-12 lg:items-start"
         >
           <TabsList className="bg-transparent lg:bg-white lg:border lg:border-gray-100 lg:shadow-sm w-full lg:w-72 flex flex-row lg:flex-col justify-start p-0 lg:p-4 h-fit gap-2 lg:rounded-3xl overflow-x-auto hide-scrollbar shrink-0">
             {can("inventory") && (
@@ -183,6 +186,7 @@ export default function AdminDashboard() {
               <TabsContent value="products" className="mt-0">
                 <AdminProducts
                   products={products}
+                  setProducts={setProducts}
                   categories={categories}
                   brands={brands}
                   loading={loading}

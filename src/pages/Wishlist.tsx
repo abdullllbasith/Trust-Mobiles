@@ -12,6 +12,10 @@ export default function Wishlist() {
 
   const handleAddToCart = (e: any, product: any) => {
     e.preventDefault();
+    if (product.status === "sold" || (product.stock ?? 1) <= 0) {
+      toast.error("This product is sold");
+      return;
+    }
     addItem({
       ...product,
       quantity: 1,

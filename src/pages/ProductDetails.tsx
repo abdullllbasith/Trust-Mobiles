@@ -11,7 +11,6 @@ import {
   ChevronRight,
   MessageCircle,
   BadgeCheck,
-  Sparkles,
   X,
 } from "lucide-react";
 import { useCartStore, Product } from "@/store/cartStore";
@@ -45,7 +44,6 @@ export default function ProductDetails() {
   const [recent, setRecent] = useState<RecentProduct[]>([]);
   const [aiRecs, setAiRecs] = useState<RecProduct[]>([]);
   const [aiReason, setAiReason] = useState("");
-  const [aiSource, setAiSource] = useState<"ai" | "inventory" | "">("");
   const [aiLoading, setAiLoading] = useState(false);
 
   // Hover zoom — desktop only (fine pointer + real hover)
@@ -108,7 +106,6 @@ export default function ProductDetails() {
         if (cancelled) return;
         setAiRecs(Array.isArray(data.products) ? data.products : []);
         setAiReason(data.reason || "");
-        setAiSource(data.source === "ai" ? "ai" : "inventory");
       })
       .catch(() => {
         if (!cancelled) {
@@ -147,7 +144,7 @@ export default function ProductDetails() {
   }, []);
 
   const handleAddToCart = (qty = quantity) => {
-    if (!product || product.stock <= 0) return;
+    if (!product || product.status === "sold" || product.stock <= 0) return;
     for (let i = 0; i < qty; i++) addItem(product);
     toast.success(
       qty > 1
@@ -221,6 +218,8 @@ export default function ProductDetails() {
   const isWishlisted = isInWishlist(product.id);
   const hasMultipleImages = images.length > 1;
   const mainImage = images[activeImage] || images[0];
+  const isSold = product.status === "sold";
+  const canPurchase = !isSold && product.stock > 0;
 
   return (
     <div className="flex-1 bg-[var(--bg-color)] min-h-screen pb-16">
@@ -262,7 +261,7 @@ export default function ProductDetails() {
               onTouchStart={() => setZooming(false)}
               onClick={() => setFullscreen(true)}
             >
-              {product.discount > 0 && (
+              {product.discount > 0 && !isSold && (
                 <div className="absolute left-4 top-4 z-20 flex flex-wrap gap-2">
                   <span className="rounded-full bg-[#1C1C1C] px-3 py-1.5 text-xs font-semibold text-white">
                     -{product.discount}% OFF
@@ -271,6 +270,14 @@ export default function ProductDetails() {
                     Offer
                   </span>
                 </div>
+              )}
+
+              {isSold && (
+                <span className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+                  <span className="rotate-[-18deg] rounded-md bg-red-600 px-8 py-2.5 text-2xl font-black uppercase tracking-[0.25em] text-white shadow-xl md:text-3xl">
+                    Sold
+                  </span>
+                </span>
               )}
 
               {hasMultipleImages && (
@@ -307,7 +314,9 @@ export default function ProductDetails() {
               <img
                 src={mainImage}
                 alt={product.name}
-                className="h-full w-full object-contain p-4 transition-opacity duration-200"
+                className={`h-full w-full object-contain p-4 transition-opacity duration-200 ${
+                  isSold ? "brightness-75 grayscale-[0.35]" : ""
+                }`}
                 style={{
                   opacity: zooming ? 0 : 1,
                 }}
@@ -424,22 +433,30 @@ export default function ProductDetails() {
             <p className="mt-1 text-sm text-[#5C574F]">Prices in LKR</p>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                  product.stock > 0
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "bg-red-50 text-red-600"
-                }`}
-              >
-                {product.stock > 0 ? (
-                  <>
-                    <Check className="h-3.5 w-3.5" /> In stock
-                    {product.stock > 5 ? " — ready to order" : ` · ${product.stock} left`}
-                  </>
-                ) : (
-                  "Out of stock"
-                )}
-              </span>
+              {isSold ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white">
+                  Sold
+                </span>
+              ) : (
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                    product.stock > 0
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "bg-red-50 text-red-600"
+                  }`}
+                >
+                  {product.stock > 0 ? (
+                    <>
+                      <Check className="h-3.5 w-3.5" /> In stock
+                      {product.stock > 5
+                        ? " — ready to order"
+                        : ` · ${product.stock} left`}
+                    </>
+                  ) : (
+                    "Out of stock"
+                  )}
+                </span>
+              )}
             </div>
 
             {/* Trust chips — no delivery */}
@@ -465,7 +482,7 @@ export default function ProductDetails() {
                 <button
                   type="button"
                   className="px-3 py-3 text-lg font-semibold text-[#1C1C1C] disabled:opacity-40"
-                  disabled={quantity <= 1}
+                  disabled={!canPurchase || quantity <= 1}
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 >
                   −
@@ -476,7 +493,7 @@ export default function ProductDetails() {
                 <button
                   type="button"
                   className="px-3 py-3 text-lg font-semibold text-[#1C1C1C] disabled:opacity-40"
-                  disabled={quantity >= Math.max(1, product.stock)}
+                  disabled={!canPurchase || quantity >= Math.max(1, product.stock)}
                   onClick={() =>
                     setQuantity((q) =>
                       Math.min(Math.max(1, product.stock), q + 1),
@@ -489,32 +506,26 @@ export default function ProductDetails() {
 
               <button
                 type="button"
-                disabled={product.stock <= 0}
+                disabled={!canPurchase}
                 onClick={() => handleAddToCart()}
                 className="btn-primary flex-1 min-w-[140px] rounded-xl disabled:opacity-50"
               >
-                <ShoppingBag className="h-4 w-4" /> Add to cart
+                <ShoppingBag className="h-4 w-4" />{" "}
+                {isSold ? "Sold out" : "Add to cart"}
               </button>
             </div>
 
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-3">
               <button
                 type="button"
-                disabled={product.stock <= 0}
+                disabled={!canPurchase}
                 onClick={() => {
                   handleAddToCart();
                   navigate("/checkout");
                 }}
-                className="flex-1 rounded-xl bg-[#C5A059] px-5 py-3 text-sm font-semibold text-[#1C1C1C] transition-colors hover:bg-[#D4AF37] disabled:opacity-50"
+                className="w-full rounded-xl bg-[#C5A059] px-5 py-3 text-sm font-semibold text-[#1C1C1C] transition-colors hover:bg-[#D4AF37] disabled:opacity-50"
               >
-                Buy now
-              </button>
-              <button
-                type="button"
-                onClick={openWhatsApp}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#1C1C1C]/15 bg-white px-5 py-3 text-sm font-semibold text-[#1C1C1C] transition-colors hover:border-[#C5A059]"
-              >
-                <MessageCircle className="h-4 w-4" /> Order on WhatsApp
+                {isSold ? "Sold out" : "Buy now"}
               </button>
             </div>
 
@@ -627,13 +638,12 @@ export default function ProductDetails() {
           )}
         </div>
 
-        {/* You may also like — AI */}
+        {/* You may also like */}
         <section className="mt-16">
           <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#C5A059]">
-                <Sparkles className="h-3.5 w-3.5" />
-                {aiSource === "ai" ? "AI picks for you" : "Recommended"}
+              <div className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#C5A059]">
+                Recommended
               </div>
               <h2 className="font-display text-2xl font-semibold text-[#1C1C1C] md:text-3xl">
                 You may also like

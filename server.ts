@@ -1,6 +1,10 @@
 import path from 'path';
 import express from 'express';
-import app, { connectDB, shrinkOversizedProductImages } from './api/app.js';
+import app, {
+  connectDB,
+  shrinkOversizedProductImages,
+  purgeExpiredSoldProducts,
+} from './api/app.js';
 
 const PORT = 3000;
 
@@ -29,7 +33,17 @@ async function startServer() {
       void shrinkOversizedProductImages().catch((err) =>
         console.warn('Image shrink skipped:', err?.message || err),
       );
+      void purgeExpiredSoldProducts().catch((err) =>
+        console.warn('Sold product purge skipped:', err?.message || err),
+      );
     }, 1500);
+
+    // Auto-delete sold products after 1 day (check hourly)
+    setInterval(() => {
+      void purgeExpiredSoldProducts().catch((err) =>
+        console.warn('Sold product purge skipped:', err?.message || err),
+      );
+    }, 60 * 60 * 1000);
   });
 }
 

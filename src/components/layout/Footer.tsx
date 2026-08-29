@@ -56,8 +56,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/trade-in" className="hover:text-white transition-colors">
-                  Trade-in
+                <Link to="/services" className="hover:text-white transition-colors">
+                  Services
                 </Link>
               </li>
               <li>

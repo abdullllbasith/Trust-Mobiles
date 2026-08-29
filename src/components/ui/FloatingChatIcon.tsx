@@ -60,10 +60,225 @@ function renderInlineMarkdown(text: string): ReactNode[] {
   });
 }
 
+type ChatProduct = {
+  name: string;
+  brand?: string;
+  price?: string;
+  stock?: string;
+  category?: string;
+  discount?: string;
+  specs?: string;
+};
+
+function parsePipeProduct(line: string): ChatProduct | null {
+  if (!line.includes("|")) return null;
+  const body = line.replace(/^([-*•]|\d+\.)\s+/, "").trim();
+  const parts = body.split("|").map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+
+  const product: ChatProduct = { name: parts[0].replace(/\*\*/g, "").trim() };
+  if (!product.name) return null;
+
+  for (let i = 1; i < parts.length; i++) {
+    const labeled = parts[i].match(/^([A-Za-z]+)\s*:\s*(.+)$/);
+    if (!labeled) {
+      if (/^LKR\s+/i.test(parts[i])) product.price = parts[i];
+      continue;
+    }
+    const key = labeled[1].toLowerCase();
+    const value = labeled[2].trim();
+    if (key === "id" || key === "_id") continue;
+    if (key === "brand") product.brand = value;
+    else if (key === "price") product.price = value;
+    else if (key === "stock") product.stock = value;
+    else if (key === "category") product.category = value;
+    else if (key === "discount") product.discount = value;
+    else if (key === "specs") product.specs = value;
+  }
+
+  return product.brand || product.price || product.stock ? product : null;
+}
+
+function parseFieldBullet(line: string): { key: string; value: string } | null {
+  const m = line.match(/^[-*•]\s*(Brand|Price|Stock|Category|Discount|Specs)\s*:\s*(.+)$/i);
+  if (!m) return null;
+  return { key: m[1].toLowerCase(), value: m[2].trim() };
+}
+
+function extractProductsFromContent(content: string): {
+  intro: string[];
+  products: ChatProduct[];
+  outro: string[];
+} {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const intro: string[] = [];
+  const products: ChatProduct[] = [];
+  const outro: string[] = [];
+  let mode: "intro" | "products" | "outro" = "intro";
+  let current: ChatProduct | null = null;
+
+  const pushCurrent = () => {
+    if (current?.name) products.push(current);
+    current = null;
+  };
+
+  for (const raw of lines) {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      if (mode === "intro") intro.push("");
+      continue;
+    }
+
+    const pipeProduct = parsePipeProduct(trimmed);
+    if (pipeProduct) {
+      pushCurrent();
+      mode = "products";
+      products.push(pipeProduct);
+      continue;
+    }
+
+    const numberedTitle = trimmed.match(/^(\d+)\.\s+\*\*(.+?)\*\*\s*$/);
+    const boldTitle = trimmed.match(/^\*\*(.+?)\*\*\s*$/);
+    const numberedPlain = trimmed.match(/^(\d+)\.\s+(.+)$/);
+
+    if (numberedTitle || (mode === "products" && boldTitle)) {
+      pushCurrent();
+      mode = "products";
+      current = { name: (numberedTitle?.[2] || boldTitle?.[1] || "").trim() };
+      continue;
+    }
+
+    if (numberedPlain && !parseFieldBullet(numberedPlain[2])) {
+      const maybePipe = parsePipeProduct(numberedPlain[2]);
+      if (maybePipe) {
+        pushCurrent();
+        mode = "products";
+        products.push(maybePipe);
+        continue;
+      }
+      // "1. Product Name" without bold
+      if (!numberedPlain[2].includes(":")) {
+        pushCurrent();
+        mode = "products";
+        current = { name: numberedPlain[2].replace(/\*\*/g, "").trim() };
+        continue;
+      }
+    }
+
+    const field = parseFieldBullet(trimmed);
+    if (field && (current || mode === "products")) {
+      if (!current) {
+        // orphan field — skip
+        continue;
+      }
+      if (field.key === "brand") current.brand = field.value;
+      else if (field.key === "price") current.price = field.value;
+      else if (field.key === "stock") current.stock = field.value;
+      else if (field.key === "category") current.category = field.value;
+      else if (field.key === "discount") current.discount = field.value;
+      else if (field.key === "specs") current.specs = field.value;
+      continue;
+    }
+
+    if (mode === "products") {
+      pushCurrent();
+      mode = "outro";
+      outro.push(trimmed);
+    } else if (mode === "outro") {
+      outro.push(trimmed);
+    } else {
+      intro.push(trimmed);
+    }
+  }
+  pushCurrent();
+
+  return { intro, products, outro };
+}
+
+function ProductCards({ products }: { products: ChatProduct[] }) {
+  return (
+    <div className="mt-1.5 space-y-2">
+      {products.map((p, i) => (
+        <div
+          key={`${p.name}-${i}`}
+          className="rounded-xl border border-black/[0.06] bg-[#FAF9F7] px-3 py-2.5"
+        >
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1C1C1C] text-[10px] font-semibold text-white">
+              {i + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-[#1C1C1C] leading-snug">{p.name}</p>
+              {p.brand && (
+                <p className="mt-0.5 text-[12px] font-medium text-[#5C574F]">{p.brand}</p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {p.price && (
+                  <span className="rounded-full bg-[#F3EBD8] px-2 py-0.5 text-[11px] font-semibold text-[#996515]">
+                    {/lkr/i.test(p.price) ? p.price : `LKR ${p.price}`}
+                  </span>
+                )}
+                {p.stock != null && p.stock !== "" && (
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-[#5C574F] ring-1 ring-black/[0.06]">
+                    Stock: {p.stock}
+                  </span>
+                )}
+                {p.category && (
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-[#5C574F] ring-1 ring-black/[0.06]">
+                    {p.category}
+                  </span>
+                )}
+                {p.discount && p.discount !== "0" && p.discount !== "0%" && (
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-[#5C574F] ring-1 ring-black/[0.06]">
+                    {p.discount.includes("%") ? p.discount : `${p.discount}% off`}
+                  </span>
+                )}
+              </div>
+              {p.specs && (
+                <p className="mt-1.5 text-[11px] leading-snug text-[#5C574F]/90">{p.specs}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TextLines({ lines }: { lines: string[] }) {
+  if (!lines.length) return null;
+  return (
+    <div className="space-y-1.5 text-left">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={i} className="h-1" aria-hidden />;
+        }
+        return (
+          <div key={i} className="leading-relaxed">
+            {renderInlineMarkdown(line)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ChatMessageContent({ content }: { content: string }) {
   const normalized = normalizeAssistantLinks(content);
-  const lines = normalized.replace(/\r\n/g, "\n").split("\n");
+  const { intro, products, outro } = extractProductsFromContent(normalized);
 
+  if (products.length > 0) {
+    return (
+      <div className="space-y-2 text-left">
+        <TextLines lines={intro} />
+        <ProductCards products={products} />
+        <TextLines lines={outro} />
+      </div>
+    );
+  }
+
+  const lines = normalized.replace(/\r\n/g, "\n").split("\n");
   return (
     <div className="space-y-1.5 text-left">
       {lines.map((line, i) => {

@@ -9,8 +9,6 @@ import {
   ShoppingBag,
   Eye,
   X,
-  Truck,
-  MessageCircle,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -205,6 +203,10 @@ export default function Shop() {
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
     e.stopPropagation();
+    if ((product as any).status === "sold" || product.stock <= 0) {
+      toast.error("This product is sold");
+      return;
+    }
     addItem({
       ...product,
       images: productImages(product),
@@ -516,21 +518,6 @@ export default function Shop() {
             </div>
           </div>
 
-          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex items-center gap-3 rounded-2xl border border-black/[0.05] bg-white px-4 py-3">
-              <MessageCircle className="h-5 w-5 shrink-0 text-[#C5A059]" />
-              <p className="text-sm font-medium text-slate-600">
-                Checkout is free — we confirm every order on WhatsApp.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 rounded-2xl border border-black/[0.05] bg-white px-4 py-3">
-              <Truck className="h-5 w-5 shrink-0 text-[#C5A059]" />
-              <p className="text-sm font-medium text-slate-600">
-                Genuine devices with support after you buy.
-              </p>
-            </div>
-          </div>
-
           {hasFilters && (
             <div className="mb-5 flex flex-wrap items-center gap-2">
               {categoryParam && (
@@ -695,12 +682,23 @@ export default function Shop() {
               >
                 <X className="h-4 w-4" />
               </button>
-              <div className="flex w-full items-center justify-center bg-slate-50 p-6 md:w-1/2">
+              <div className="relative flex w-full items-center justify-center bg-slate-50 p-6 md:w-1/2">
                 <img
                   src={productImages(quickViewProduct)[0]}
                   alt={quickViewProduct.name}
-                  className="max-h-[280px] object-contain"
+                  className={`max-h-[280px] object-contain ${
+                    (quickViewProduct as any).status === "sold"
+                      ? "brightness-75 grayscale-[0.35]"
+                      : ""
+                  }`}
                 />
+                {(quickViewProduct as any).status === "sold" && (
+                  <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="rotate-[-18deg] rounded-md bg-red-600 px-6 py-2 text-xl font-black uppercase tracking-[0.2em] text-white shadow-lg">
+                      Sold
+                    </span>
+                  </span>
+                )}
               </div>
               <div className="flex w-full flex-col p-6 md:w-1/2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -718,9 +716,16 @@ export default function Shop() {
                 <div className="mt-auto flex gap-2">
                   <button
                     onClick={(e) => handleAddToCart(e, quickViewProduct)}
-                    className="btn-primary flex-1"
+                    disabled={
+                      (quickViewProduct as any).status === "sold" ||
+                      quickViewProduct.stock <= 0
+                    }
+                    className="btn-primary flex-1 disabled:opacity-50"
                   >
-                    <ShoppingBag className="h-4 w-4" /> Add to cart
+                    <ShoppingBag className="h-4 w-4" />{" "}
+                    {(quickViewProduct as any).status === "sold"
+                      ? "Sold"
+                      : "Add to cart"}
                   </button>
                   <button
                     onClick={(e) => toggleWishlist(e, quickViewProduct)}

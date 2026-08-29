@@ -1,5 +1,4 @@
-import { Outlet, useNavigate } from "react-router-dom";
-import { Logo } from "@/components/ui/Logo";
+import { Outlet, useNavigate, Link } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuthStore } from "@/store/authStore";
 import { LogOut } from "lucide-react";
@@ -14,10 +13,16 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F4F7FB]">
+    <div className="min-h-screen flex flex-col bg-[#F4F7FB] overscroll-none">
       <header className="h-[72px] flex items-center justify-between px-4 md:px-8 bg-[#0A0D14] border-b border-white/10 sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <Logo to="/admin" size="sm" />
+          <Link to="/admin" className="flex items-center shrink-0">
+            <img
+              src="/TM-light-land.png"
+              alt="Trust Mobile"
+              className="h-14 md:h-16 w-auto object-contain"
+            />
+          </Link>
           <span className="hidden sm:inline text-xs font-semibold tracking-[0.2em] uppercase text-[#F3EBD8]/60 border-l border-white/15 pl-4">
             Admin
           </span>
@@ -35,7 +40,7 @@ export default function AdminLayout() {
           </button>
         </div>
       </header>
-      <main className="flex-1">
+      <main className="flex-1 overscroll-none">
         <Outlet />
       </main>
       <Toaster position="top-center" richColors />

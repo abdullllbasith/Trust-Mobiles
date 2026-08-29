@@ -2,15 +2,22 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerClassName,
+  ...props
+}: React.ComponentProps<"table"> & { containerClassName?: string }) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn(
+        "relative w-full overflow-auto max-h-[min(62vh,640px)] overscroll-y-none overscroll-x-contain [scrollbar-gutter:stable] [scrollbar-width:thin]",
+        containerClassName,
+      )}
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full caption-bottom text-sm border-separate border-spacing-0", className)}
         {...props}
       />
     </div>
@@ -68,7 +75,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "sticky top-0 z-20 h-10 border-b border-border bg-white px-2 text-left align-middle font-medium whitespace-nowrap text-foreground shadow-[0_1px_0_0_hsl(var(--border))] [&:has([role=checkbox])]:pr-0",
         className,
       )}
       {...props}

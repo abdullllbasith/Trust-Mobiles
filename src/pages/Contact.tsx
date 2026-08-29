@@ -54,14 +54,22 @@ export default function Contact() {
                   Call Us
                 </h3>
                 <p className="text-gray-500 font-medium mb-3 text-sm">
-                  Mon-Fri from 8am to 8pm.
+                  Monday to Sunday 9am to 9pm.
                 </p>
-                <a
-                  href="tel:+18001234567"
-                  className="font-semibold text-[#111] hover:text-[#C5A059] transition-colors"
-                >
-                  +1 (800) 123-4567
-                </a>
+                <div className="flex flex-col gap-1">
+                  <a
+                    href="tel:0773604854"
+                    className="font-semibold text-[#111] hover:text-[#C5A059] transition-colors"
+                  >
+                    0773604854
+                  </a>
+                  <a
+                    href="tel:0702229898"
+                    className="font-semibold text-[#111] hover:text-[#C5A059] transition-colors"
+                  >
+                    0702229898
+                  </a>
+                </div>
               </div>
             </div>
 
@@ -77,10 +85,10 @@ export default function Contact() {
                   We'll reply within 24 hours.
                 </p>
                 <a
-                  href="mailto:hello@trustmobile.lk"
-                  className="font-semibold text-[#111] hover:text-[#C5A059] transition-colors"
+                  href="mailto:trustmobile.office@gmail.com"
+                  className="font-semibold text-[#111] hover:text-[#C5A059] transition-colors break-all"
                 >
-                  hello@trustmobile.lk
+                  trustmobile.office@gmail.com
                 </a>
               </div>
             </div>
@@ -97,9 +105,9 @@ export default function Contact() {
                   Drop by our main store.
                 </p>
                 <p className="font-semibold text-[#111]">
-                  1 Market St.
+                  No.74, Seenawatta,
                   <br />
-                  San Francisco, CA 94105
+                  Aluthgama
                 </p>
               </div>
             </div>
@@ -158,7 +166,7 @@ export default function Contact() {
                   <option value="General Inquiry">General Inquiry</option>
                   <option value="Order Support">Order Support</option>
                   <option value="Returns & Refunds">Returns & Refunds</option>
-                  <option value="Trade-in Program">Trade-in Program</option>
+                  <option value="Services">Services</option>
                 </select>
               </div>
               <div className="space-y-2">

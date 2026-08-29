@@ -33,7 +33,7 @@ export default function AdminCategories({ categories, loading, fetchData }: any)
       toast.success("Category created");
       setIsModalOpen(false);
       setName("");
-      fetchData();
+      fetchData({ silent: true });
     } catch (err: any) {
       toast.error(err.message || "Error saving category");
     } finally {
@@ -50,7 +50,7 @@ export default function AdminCategories({ categories, loading, fetchData }: any)
         fallbackError: "Failed to delete category",
       });
       toast.success("Category deleted");
-      fetchData();
+      fetchData({ silent: true });
     } catch (err: any) {
       toast.error(err.message || "Error deleting category");
     }
@@ -75,7 +75,7 @@ export default function AdminCategories({ categories, loading, fetchData }: any)
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-hidden bg-white">
             <Table>
               <TableHeader>
                 <TableRow>

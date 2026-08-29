@@ -1,27 +1,37 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const FlashSaleTimer = ({ endDate }: { endDate: string }) => {
   const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
     if (!endDate) return;
-    const interval = setInterval(() => {
+    const tick = () => {
       const distance = new Date(endDate).getTime() - new Date().getTime();
       if (distance < 0) {
-        clearInterval(interval);
-        setTimeLeft("EXPIRED");
-      } else {
-        const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-        const s = Math.floor((distance % (1000 * 60)) / 1000);
-        setTimeLeft(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+        setTimeLeft("");
+        return false;
       }
+      const d = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((distance % (1000 * 60)) / 1000);
+      setTimeLeft(
+        d > 0
+          ? `${d}d ${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
+          : `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`,
+      );
+      return true;
+    };
+    if (!tick()) return;
+    const interval = setInterval(() => {
+      if (!tick()) clearInterval(interval);
     }, 1000);
     return () => clearInterval(interval);
   }, [endDate]);
 
+  if (!timeLeft) return null;
   return <span>Ends in {timeLeft}</span>;
 };
 
@@ -66,10 +76,6 @@ const HOME_FAQS = [
   {
     q: "Are your products genuine?",
     a: "Yes. We sell authentic phones and accessories, and we confirm stock and condition with you on WhatsApp before you pay.",
-  },
-  {
-    q: "Can I trade in my old phone?",
-    a: "Yes. Use our Trade-In page to get a value estimate, then our team will guide you through the upgrade on WhatsApp.",
   },
   {
     q: "How can I get help picking a device?",
@@ -218,12 +224,30 @@ export default function Home() {
   const [ads, setAds] = useState<any[]>([]);
   const [news, setNews] = useState<any[]>([]);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const { addItem } = useCartStore();
   const {
     addItem: addWishlist,
     isInWishlist,
     removeItem: removeWishlist,
   } = useWishlistStore();
+
+  const carouselAds = useMemo(
+    () => ads.filter((ad) => ad.position === "carousel"),
+    [ads],
+  );
+
+  useEffect(() => {
+    if (carouselAds.length <= 1) return;
+    const timer = setInterval(() => {
+      setCarouselIndex((i) => (i + 1) % carouselAds.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [carouselAds.length]);
+
+  useEffect(() => {
+    if (carouselIndex >= carouselAds.length) setCarouselIndex(0);
+  }, [carouselAds.length, carouselIndex]);
 
   useEffect(() => {
     fetch(`/api/products`)
@@ -282,6 +306,10 @@ export default function Home() {
 
   const handleAddToCart = (e: any, product: any) => {
     e.preventDefault();
+    if (product.status === "sold" || (product.stock ?? 1) <= 0) {
+      toast.error("This product is sold");
+      return;
+    }
     addItem({
       ...product,
       images:
@@ -406,15 +434,15 @@ export default function Home() {
           >
             <div className="relative z-10">
               <h3 className="text-3xl font-display font-medium mb-3 text-white">
-                Upgrade Program
+                Our services
               </h3>
               <p className="text-white/60 mb-8 font-medium text-lg leading-relaxed max-w-sm">
-                Trade in your old device and get credit toward the latest
-                flagship smartphones.
+                Warranty help, device setup, accessory fitting, and island-wide
+                delivery — all backed by WhatsApp care.
               </p>
-              <Link to="/trade-in">
+              <Link to="/services">
                 <button className="text-[#121212] bg-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-[#C5A059] hover:text-[#1C1C1C] transition-all">
-                  Value Your Device
+                  Explore services
                 </button>
               </Link>
             </div>
@@ -453,29 +481,56 @@ export default function Home() {
       </section>
 
       {/* ADS PROMOTIONS (Carousel) */}
-      {ads.filter(ad => ad.position === 'carousel').length > 0 && (
+      {carouselAds.length > 0 && (
         <section className="px-4 md:px-8 mb-12 flex justify-center">
           <div className="max-w-[1400px] w-full relative rounded-2xl overflow-hidden glass-panel">
-            <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide">
-              {ads.filter(ad => ad.position === 'carousel').map((ad, idx) => (
-                <a
-                  key={idx}
-                  href={ad.link || "#"}
-                  target={ad.link ? "_blank" : undefined}
-                  className="min-w-full snap-start relative group block"
-                >
-                  <img
-                    src={ad.image}
-                    alt={ad.title}
-                    className="w-full h-[150px] md:h-[250px] object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
-                  <div className="absolute bottom-4 left-6 text-white text-xl md:text-3xl font-display font-bold drop-shadow-md">
-                    {ad.title}
-                  </div>
-                </a>
-              ))}
+            <div className="relative w-full h-[150px] md:h-[250px]">
+              <AnimatePresence mode="wait" initial={false}>
+                {(() => {
+                  const ad = carouselAds[carouselIndex % carouselAds.length];
+                  return (
+                    <motion.a
+                      key={`${ad._id || ad.id || ad.title}-${carouselIndex}`}
+                      href={ad.link || "#"}
+                      target={ad.link ? "_blank" : undefined}
+                      rel={ad.link ? "noopener noreferrer" : undefined}
+                      initial={{ opacity: 0, x: 40 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -40 }}
+                      transition={{ duration: 0.45, ease: "easeInOut" }}
+                      className="absolute inset-0 block group"
+                    >
+                      <img
+                        src={ad.image}
+                        alt={ad.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                      <div className="absolute bottom-4 left-6 text-white text-xl md:text-3xl font-display font-bold drop-shadow-md">
+                        {ad.title}
+                      </div>
+                    </motion.a>
+                  );
+                })()}
+              </AnimatePresence>
             </div>
+            {carouselAds.length > 1 && (
+              <div className="absolute bottom-3 right-4 z-10 flex gap-1.5">
+                {carouselAds.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    aria-label={`Go to ad ${idx + 1}`}
+                    onClick={() => setCarouselIndex(idx)}
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === carouselIndex % carouselAds.length
+                        ? "w-5 bg-white"
+                        : "w-1.5 bg-white/50 hover:bg-white/80"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -675,39 +730,56 @@ export default function Home() {
         ))}
 
         {/* DEALS OF THE DAY / FLASH SALE */}
-        {ads.filter(ad => ad.position === 'flash_sale').map((ad, idx) => (
+        {ads.filter((ad) => ad.position === "flash_sale").map((ad, idx) => (
           <div key={idx} className="mb-24">
-            <div className="bg-[#121212] rounded-[3rem] p-8 md:p-16 text-white relative overflow-hidden flex flex-col lg:flex-row items-center gap-12 shadow-2xl">
-              <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-[#C5A059] rounded-full mix-blend-screen filter blur-[150px] opacity-20 pointer-events-none"></div>
+            <a
+              href={ad.link || "#"}
+              target={ad.link ? "_blank" : undefined}
+              rel={ad.link ? "noopener noreferrer" : undefined}
+              className="group relative block h-[340px] overflow-hidden rounded-[1.75rem] md:h-[400px]"
+            >
+              <img
+                src={ad.image}
+                alt={ad.title}
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.1s] ease-out group-hover:scale-105"
+              />
+              {/* Soft brand wash — readable without heavy dark overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-[#F8F6F1] via-[#F8F6F1]/92 to-[#F8F6F1]/15 md:via-[#F8F6F1]/85 md:to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#F8F6F1]/80 via-transparent to-transparent md:hidden" />
 
-              <div className="flex-1 z-10 w-full text-center lg:text-left">
-                <span className="bg-red-500 text-white text-xs font-semibold uppercase tracking-widest px-4 py-2 rounded-full inline-block mb-6 shadow-sm border border-red-400/50">
-                  Flash Sale • {ad.endDate ? <FlashSaleTimer endDate={ad.endDate} /> : "Limited Time"}
-                </span>
-                <h2 className="text-4xl md:text-6xl font-display font-medium mb-6 leading-[1.1] whitespace-pre-line text-[#C5A059]">
+              <div className="relative z-10 flex h-full max-w-xl flex-col justify-end p-7 sm:p-10 md:justify-center md:p-12 lg:p-14">
+                <div className="mb-5 h-px w-12 bg-[#C5A059]" />
+
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#996515]">
+                  Today&apos;s deal
+                  {ad.endDate ? (
+                    <>
+                      <span className="mx-2 text-[#C5A059]/50">·</span>
+                      <span className="tracking-normal text-[#5C574F] normal-case font-medium">
+                        <FlashSaleTimer endDate={ad.endDate} />
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+
+                <h2 className="font-display text-3xl font-semibold leading-[1.1] tracking-tight text-[#1C1C1C] sm:text-4xl md:text-5xl whitespace-pre-line">
                   {ad.title}
                 </h2>
-                {ad.description && (
-                  <p className="text-white/60 font-medium text-lg lg:text-xl max-w-md mb-10 leading-relaxed mx-auto lg:mx-0">
+
+                {ad.description ? (
+                  <p className="mt-4 max-w-sm text-sm leading-relaxed text-[#5C574F] sm:text-base">
                     {ad.description}
                   </p>
-                )}
+                ) : null}
 
-                <a href={ad.link || "#"} target={ad.link ? "_blank" : undefined} className="inline-block mt-2 bg-white text-[#121212] px-8 py-4 rounded-full font-semibold hover:bg-[#C5A059] hover:text-[#1C1C1C] transform hover:scale-105 transition-all outline-none">
-                  Claim Deal Now
-                </a>
+                <span className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-[#1C1C1C]">
+                  <span className="border-b border-[#1C1C1C]/35 pb-0.5 transition-colors group-hover:border-[#C5A059]">
+                    Shop this deal
+                  </span>
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </span>
               </div>
-
-              <div className="w-full lg:w-1/2 relative z-10 flex justify-center mt-10 lg:mt-0">
-                <div className="w-72 h-72 md:w-96 md:h-96 bg-white/5 rounded-full flex items-center justify-center border border-white/10 shadow-[0_0_100px_rgba(255,255,255,0.05)] relative pointer-events-none">
-                  <img
-                    src={ad.image}
-                    alt={ad.title}
-                    className="w-[85%] h-[85%] object-cover rounded-full mix-blend-screen shadow-2xl hover:scale-110 transition-transform duration-1000"
-                  />
-                </div>
-              </div>
-            </div>
+            </a>
           </div>
         ))}
 
@@ -842,7 +914,7 @@ export default function Home() {
               Loved by customers
             </h2>
             <p className="text-gray-500 mt-4 text-lg font-medium max-w-2xl">
-              See why people trust us for phones, accessories, and trade-ins.
+              See why people trust us for phones and accessories.
             </p>
           </div>
 

@@ -52,6 +52,12 @@ export const env = {
   AI_FALLBACK_MODELS: parseModelList(readEnv('AI_FALLBACK_MODELS'), DEFAULT_AI_FALLBACK_MODELS),
   GEMINI_API_KEY: readEnv('GEMINI_API_KEY'),
   APP_URL: resolveAppUrl(),
+  /** SMTP for admin password-reset OTPs (e.g. Gmail app password) */
+  SMTP_HOST: readEnv('SMTP_HOST'),
+  SMTP_PORT: Number(readEnv('SMTP_PORT') || '587') || 587,
+  SMTP_USER: readEnv('SMTP_USER'),
+  SMTP_PASS: readEnv('SMTP_PASS'),
+  SMTP_FROM: readEnv('SMTP_FROM') ?? readEnv('SMTP_USER') ?? 'Trust Mobile <noreply@trustmobile.local>',
   isVercel: readEnv('VERCEL') === '1',
   isProduction: process.env.NODE_ENV === 'production',
 };

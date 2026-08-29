@@ -10,6 +10,7 @@ export type ProductCardProduct = {
   price: number;
   discount?: number;
   stock?: number;
+  status?: "available" | "sold";
   images?: string[] | string;
   image?: string;
 };
@@ -18,7 +19,8 @@ function formatLkr(amount: number) {
   return `LKR ${Math.round(amount).toLocaleString("en-US")}`;
 }
 
-function stockLabel(stock?: number) {
+function stockLabel(stock?: number, sold?: boolean) {
+  if (sold) return { text: "Sold", className: "text-red-600" };
   if (stock === undefined || stock === null) return null;
   if (stock <= 0) return { text: "Out of stock", className: "text-red-600" };
   if (stock <= 5)
@@ -46,15 +48,17 @@ export function ProductCard({
     : normalizeImages(product.images);
   const discount = product.discount || 0;
   const salePrice = product.price * (1 - discount / 100);
-  const stock = stockLabel(product.stock);
-  const outOfStock = (product.stock ?? 1) <= 0;
+  const isSold = product.status === "sold";
+  const stock = stockLabel(product.stock, isSold);
+  const unavailable = isSold || (product.stock ?? 1) <= 0;
 
-  const showNew = badge === "new";
+  const showNew = !isSold && badge === "new";
   const showDiscount =
-    badge === "discount" || (badge === "auto" && discount > 0 && !showNew);
+    !isSold &&
+    (badge === "discount" || (badge === "auto" && discount > 0 && !showNew));
 
   return (
-    <div className="product-card group">
+    <div className={`product-card group ${isSold ? "opacity-95" : ""}`}>
       {actions}
       <Link to={`/product/${product.id}`} className="flex flex-col">
         <div className="relative h-36 overflow-hidden bg-[#F8F6F1] sm:h-44 md:h-48">
@@ -73,8 +77,17 @@ export function ProductCard({
             alt={product.name}
             loading="lazy"
             decoding="async"
-            className="product-card-image h-full w-full object-cover transition-transform duration-500"
+            className={`product-card-image h-full w-full object-cover transition-transform duration-500 ${
+              isSold ? "brightness-75 grayscale-[0.35]" : ""
+            }`}
           />
+          {isSold && (
+            <span className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+              <span className="rotate-[-18deg] rounded-md bg-red-600 px-4 py-1.5 text-sm font-black uppercase tracking-[0.2em] text-white shadow-lg sm:px-5 sm:py-2 sm:text-base">
+                Sold
+              </span>
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col gap-1 p-3 sm:gap-1.5 sm:p-4">
@@ -106,30 +119,30 @@ export function ProductCard({
             {compactAction ? (
               <button
                 type="button"
-                disabled={outOfStock}
+                disabled={unavailable}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (!outOfStock) onAdd(e, product);
+                  if (!unavailable) onAdd(e, product);
                 }}
                 className="shrink-0 rounded-full bg-[#1C1C1C] p-2 text-white transition-all hover:bg-[#C5A059] hover:text-[#1C1C1C] disabled:cursor-not-allowed disabled:opacity-40 sm:p-2.5"
-                aria-label="Add to cart"
+                aria-label={isSold ? "Sold" : "Add to cart"}
               >
                 <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             ) : (
               <button
                 type="button"
-                disabled={outOfStock}
+                disabled={unavailable}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (!outOfStock) onAdd(e, product);
+                  if (!unavailable) onAdd(e, product);
                 }}
                 className="btn-primary shrink-0 rounded-xl px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ShoppingBag className="h-3.5 w-3.5" />
-                Add
+                {isSold ? "Sold" : "Add"}
               </button>
             )}
           </div>

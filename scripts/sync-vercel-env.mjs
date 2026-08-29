@@ -21,6 +21,11 @@ const KEYS = [
   'AI_FALLBACK_MODELS',
   'APP_URL',
   'GEMINI_API_KEY',
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_USER',
+  'SMTP_PASS',
+  'SMTP_FROM',
 ];
 
 const PRODUCTION_APP_URL = 'https://trust-mobiles.vercel.app';

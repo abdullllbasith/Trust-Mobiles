@@ -2,7 +2,6 @@ import { motion } from "framer-motion";
 import {
   ShieldCheck,
   Truck,
-  Clock,
   Headphones,
   Award,
   Store,
@@ -100,11 +99,6 @@ export default function About() {
                 icon: <Truck />,
                 title: "Express Delivery",
                 desc: "Next-day delivery available on all flagship devices for orders placed before 4 PM.",
-              },
-              {
-                icon: <Clock />,
-                title: "Trade-In Program",
-                desc: "Seamlessly upgrade your old device for credit toward the latest innovations.",
               },
             ].map((value, idx) => (
               <div

@@ -123,8 +123,8 @@ export function Navbar() {
           <NavLink to="/about" className={linkClass}>
             About
           </NavLink>
-          <NavLink to="/trade-in" className={linkClass}>
-            Trade-In
+          <NavLink to="/services" className={linkClass}>
+            Services
           </NavLink>
           <NavLink to="/contact" className={linkClass}>
             Contact
@@ -214,7 +214,7 @@ export function Navbar() {
                   ["/", "Home"],
                   ["/shop", "Store"],
                   ["/about", "About"],
-                  ["/trade-in", "Trade-In"],
+                  ["/services", "Services"],
                   ["/contact", "Contact"],
                 ].map(([href, label]) => (
                   <Link

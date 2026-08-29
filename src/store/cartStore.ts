@@ -11,6 +11,8 @@ export interface Product {
   price: number;
   discount: number;
   stock: number;
+  status?: "available" | "sold";
+  soldAt?: string | null;
   images: string[];
   specs: any;
   createdAt: string;

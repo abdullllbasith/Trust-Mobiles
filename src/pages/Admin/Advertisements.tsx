@@ -161,7 +161,7 @@ export default function AdminAdvertisements() {
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-hidden bg-white">
             <Table>
               <TableHeader>
                 <TableRow>

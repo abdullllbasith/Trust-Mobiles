@@ -11,6 +11,7 @@ interface User {
   email: string;
   role: string;
   permissions?: string[];
+  isSuperAdmin?: boolean;
 }
 
 interface AuthState {
@@ -20,6 +21,7 @@ interface AuthState {
   logout: () => void;
   isAuthenticated: () => boolean;
   isAdmin: () => boolean;
+  isSuperAdmin: () => boolean;
   can: (permission: AdminPermissionId) => boolean;
 }
 
@@ -32,9 +34,11 @@ export const useAuthStore = create<AuthState>()(
       logout: () => set({ user: null, token: null }),
       isAuthenticated: () => !!get().token,
       isAdmin: () => get().user?.role === "admin",
+      isSuperAdmin: () => Boolean(get().user?.isSuperAdmin),
       can: (permission) => {
         const user = get().user;
         if (!user || user.role !== "admin") return false;
+        if (user.isSuperAdmin) return true;
         return hasPermission(user.permissions, permission);
       },
     }),

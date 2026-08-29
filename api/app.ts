@@ -5,6 +5,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import OpenAI from 'openai';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 import {
   env,
   assertVercelEnv,
@@ -97,6 +99,11 @@ const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 8;
 
+const otpAttempts = new Map<string, { count: number; lockedUntil: number }>();
+const OTP_WINDOW_MS = 15 * 60 * 1000;
+const OTP_MAX_SENDS = 5;
+const OTP_TTL_MS = 10 * 60 * 1000;
+
 function clientKey(req: express.Request) {
   return `${req.ip || 'unknown'}:${String(req.body?.email || '').toLowerCase()}`;
 }
@@ -120,14 +127,78 @@ function recordFailedLogin(key: string) {
   loginAttempts.set(key, row);
 }
 
+function isOtpSendLocked(key: string) {
+  const row = otpAttempts.get(key);
+  if (!row) return false;
+  if (Date.now() > row.lockedUntil && row.count >= OTP_MAX_SENDS) {
+    otpAttempts.delete(key);
+    return false;
+  }
+  return Date.now() < row.lockedUntil && row.count >= OTP_MAX_SENDS;
+}
+
+function recordOtpSend(key: string) {
+  const row = otpAttempts.get(key) || { count: 0, lockedUntil: 0 };
+  row.count += 1;
+  if (row.count >= OTP_MAX_SENDS) {
+    row.lockedUntil = Date.now() + OTP_WINDOW_MS;
+  }
+  otpAttempts.set(key, row);
+}
+
+function smtpConfigured() {
+  return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
+}
+
+async function sendPasswordResetOtpEmail(to: string, otp: string) {
+  if (!smtpConfigured()) {
+    if (env.isProduction) {
+      throw new Error('Email is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.');
+    }
+    console.warn(`[dev] Admin password reset OTP for ${to}: ${otp}`);
+    return { logged: true as const };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_PORT === 465,
+    auth: {
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: env.SMTP_FROM,
+    to,
+    subject: 'Trust Mobile admin password reset code',
+    text: `Your Trust Mobile admin password reset code is ${otp}.\n\nThis code expires in 10 minutes. If you did not request a reset, ignore this email.`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; color: #1C1C1C;">
+        <h2 style="margin-bottom: 8px;">Password reset</h2>
+        <p style="color: #5C574F; line-height: 1.5;">Use this one-time code to reset your Trust Mobile admin password:</p>
+        <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; margin: 24px 0;">${otp}</p>
+        <p style="color: #5C574F; font-size: 14px; line-height: 1.5;">This code expires in 10 minutes. If you did not request a reset, you can ignore this email.</p>
+      </div>
+    `,
+  });
+
+  return { logged: false as const };
+}
+
 // Mongoose Schemas
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, default: 'user' },
-  // Empty array = full admin access (legacy / super admin)
+  // Empty array = full admin access (legacy / full-access staff)
   permissions: { type: [String], default: [] },
+  // Exactly one parent owner — cannot be deleted by anyone
+  isSuperAdmin: { type: Boolean, default: false },
+  resetPasswordOtpHash: { type: String, default: null },
+  resetPasswordExpires: { type: Date, default: null },
 }, { timestamps: true });
 
 const ADMIN_PERMISSION_IDS = [
@@ -151,22 +222,58 @@ function normalizePermissions(raw: unknown): string[] {
   ];
 }
 
-/** Empty permissions = full access. */
-function userHasPermission(user: { permissions?: string[] } | null | undefined, permission: string) {
+/** Empty permissions = full access. Super admin always has full access. */
+function userHasPermission(
+  user: { permissions?: string[]; isSuperAdmin?: boolean } | null | undefined,
+  permission: string,
+) {
+  if (user?.isSuperAdmin) return true;
   const list = normalizePermissions(user?.permissions);
   if (list.length === 0) return true;
   return list.includes(permission);
 }
 
+function isParentSuperAdmin(user: { isSuperAdmin?: boolean } | null | undefined) {
+  return Boolean(user?.isSuperAdmin);
+}
+
+/** Actor may assign these permissions (empty list = full access). */
+function canAssignPermissions(
+  actor: { permissions?: string[]; isSuperAdmin?: boolean } | null | undefined,
+  nextPermissions: string[],
+) {
+  if (isParentSuperAdmin(actor)) return true;
+  // Only the parent super admin can grant full access (empty permissions)
+  if (nextPermissions.length === 0) return false;
+  const actorPerms = normalizePermissions(actor?.permissions);
+  // Full-access staff (empty perms, not parent) can assign any subset
+  if (actorPerms.length === 0) return true;
+  return nextPermissions.every((p) => actorPerms.includes(p));
+}
+
+function requirePermission(permission: string) {
+  return (req: any, res: any, next: any) => {
+    if (!userHasPermission(req.user, permission)) {
+      return res.status(403).json({
+        error: `You do not have permission for "${permission.replace(/_/g, ' ')}".`,
+      });
+    }
+    next();
+  };
+}
+
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  brand: { type: String, required: true },
+  brand: { type: String, default: '' },
   category: { type: String, required: true },
   description: { type: String, default: '' },
   highlights: { type: [String], default: [] },
   price: { type: Number, required: true },
   discount: { type: Number, default: 0 },
   stock: { type: Number, default: 0 },
+  // available = listed in store; sold = red SOLD label, auto-deleted after 1 day
+  status: { type: String, enum: ['available', 'sold'], default: 'available' },
+  soldAt: { type: Date, default: null },
   images: [String],
   specs: mongoose.Schema.Types.Mixed
 }, { timestamps: true });
@@ -295,9 +402,34 @@ const seedData = async () => {
         password: hash,
         role: 'admin',
         permissions: [],
+        isSuperAdmin: true,
       });
-      console.log(`Seeded admin account for ${env.ADMIN_EMAIL}`);
+      console.log(`Seeded parent super admin for ${env.ADMIN_EMAIL}`);
     }
+  }
+
+  // Parent super admin is always ADMIN_EMAIL (default: admin@trustmobile.local).
+  // That account can create users and grant full access; no one else is parent.
+  const parentEmail = env.ADMIN_EMAIL.toLowerCase();
+  const parent =
+    (await User.findOne({ role: 'admin', email: parentEmail })) ||
+    (await User.findOne({ role: 'admin' }).sort({ createdAt: 1 }));
+
+  if (parent) {
+    if (parent.email !== parentEmail) {
+      console.warn(
+        `ADMIN_EMAIL ${parentEmail} not found — using ${parent.email} as parent until that account exists.`,
+      );
+    }
+    if (!parent.get('isSuperAdmin') || (parent.permissions || []).length > 0) {
+      parent.set({ isSuperAdmin: true, permissions: [] });
+      await parent.save();
+      console.log(`Parent super admin: ${parent.email}`);
+    }
+    await User.updateMany(
+      { role: 'admin', _id: { $ne: parent._id }, isSuperAdmin: true },
+      { $set: { isSuperAdmin: false } },
+    );
   }
 
   const productCount = await Product.countDocuments();
@@ -504,6 +636,29 @@ function invalidateProductListCache() {
   productListCache = null;
 }
 
+const SOLD_RETENTION_MS = 24 * 60 * 60 * 1000; // 1 day
+
+/** Delete products marked sold more than 1 day ago. */
+export async function purgeExpiredSoldProducts() {
+  const cutoff = new Date(Date.now() - SOLD_RETENTION_MS);
+  const result = await Product.deleteMany({
+    status: 'sold',
+    soldAt: { $lte: cutoff },
+  });
+  if (result.deletedCount && result.deletedCount > 0) {
+    invalidateProductListCache();
+    console.log(`Purged ${result.deletedCount} sold product(s) older than 1 day`);
+  }
+  return result.deletedCount || 0;
+}
+
+function soldStatusUpdate(status: 'available' | 'sold') {
+  if (status === 'sold') {
+    return { status: 'sold', soldAt: new Date() };
+  }
+  return { status: 'available', soldAt: null };
+}
+
 // Health check (useful for verifying Vercel env + DB connectivity)
 app.get('/api/health', async (_req, res) => {
   const missingEnv = getMissingVercelEnvVars();
@@ -587,13 +742,13 @@ app.post('/api/admin/login', async (req, res) => {
     const user = await User.findOne({ email, role: 'admin' });
     if (!user) {
       recordFailedLogin(key);
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const ok = await bcrypt.compare(password, user.password as string);
     if (!ok) {
       recordFailedLogin(key);
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     loginAttempts.delete(key);
@@ -605,6 +760,7 @@ app.post('/api/admin/login', async (req, res) => {
         role: user.role,
         name: user.name,
         permissions: normalizePermissions((user as any).permissions),
+        isSuperAdmin: Boolean((user as any).isSuperAdmin),
         typ: 'admin',
       },
       getJwtSecret(),
@@ -619,10 +775,116 @@ app.post('/api/admin/login', async (req, res) => {
         email: user.email,
         role: user.role,
         permissions: normalizePermissions((user as any).permissions),
+        isSuperAdmin: Boolean((user as any).isSuperAdmin),
       },
     });
   } catch {
     res.status(500).json({ error: 'Server error during login' });
+  }
+});
+
+app.post('/api/admin/forgot-password', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const key = `otp:${clientKey(req)}`;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Admin email is required' });
+  }
+
+  if (isOtpSendLocked(key)) {
+    return res.status(429).json({ error: 'Too many reset requests. Try again in 15 minutes.' });
+  }
+
+  try {
+    if (!smtpConfigured() && env.isProduction) {
+      return res.status(500).json({
+        error: 'Email is not configured on the server. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.',
+      });
+    }
+
+    const user = await User.findOne({ email, role: 'admin' });
+    if (!user) {
+      recordOtpSend(key);
+      return res.status(404).json({
+        error: 'No admin account found with that email. Use the email you sign in with.',
+      });
+    }
+
+    const otp = String(crypto.randomInt(100000, 1000000));
+    const resetPasswordOtpHash = await bcrypt.hash(otp, 10);
+    const resetPasswordExpires = new Date(Date.now() + OTP_TTL_MS);
+
+    user.set({ resetPasswordOtpHash, resetPasswordExpires });
+    await user.save();
+
+    try {
+      const sent = await sendPasswordResetOtpEmail(email, otp);
+      recordOtpSend(key);
+      res.json({
+        message: sent.logged
+          ? 'Reset code generated. Check the server console (SMTP not fully configured).'
+          : `Reset code sent to ${email}. Check your inbox (and spam folder).`,
+      });
+    } catch (mailErr: any) {
+      console.error('Failed to send password reset OTP:', mailErr);
+      user.set({ resetPasswordOtpHash: null, resetPasswordExpires: null });
+      await user.save();
+      const detail = String(mailErr?.message || mailErr || '');
+      res.status(500).json({
+        error: detail.includes('Invalid login') || detail.includes('Username and Password not accepted')
+          ? 'Gmail rejected the SMTP login. Use a Google App Password (not your normal Gmail password) in SMTP_PASS.'
+          : mailErr?.message || 'Failed to send reset email. Check SMTP settings.',
+      });
+    }
+  } catch (err) {
+    console.error('forgot-password error:', err);
+    res.status(500).json({ error: 'Server error while starting password reset' });
+  }
+});
+
+app.post('/api/admin/reset-password', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const otp = String(req.body?.otp || '').trim();
+  const newPassword = String(req.body?.newPassword || '');
+
+  if (!email || !otp || !newPassword) {
+    return res.status(400).json({ error: 'Email, OTP, and new password are required' });
+  }
+  if (!/^\d{6}$/.test(otp)) {
+    return res.status(400).json({ error: 'OTP must be a 6-digit code' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  try {
+    const user = await User.findOne({ email, role: 'admin' });
+    if (!user || !user.get('resetPasswordOtpHash') || !user.get('resetPasswordExpires')) {
+      return res.status(400).json({ error: 'Invalid or expired reset code' });
+    }
+
+    const expires = new Date(user.get('resetPasswordExpires') as Date).getTime();
+    if (Number.isNaN(expires) || Date.now() > expires) {
+      user.set({ resetPasswordOtpHash: null, resetPasswordExpires: null });
+      await user.save();
+      return res.status(400).json({ error: 'Reset code has expired. Request a new one.' });
+    }
+
+    const otpOk = await bcrypt.compare(otp, String(user.get('resetPasswordOtpHash')));
+    if (!otpOk) {
+      return res.status(400).json({ error: 'Invalid or expired reset code' });
+    }
+
+    user.set({
+      password: await bcrypt.hash(newPassword, 12),
+      resetPasswordOtpHash: null,
+      resetPasswordExpires: null,
+    });
+    await user.save();
+
+    res.json({ message: 'Password updated. You can sign in with your new password.' });
+  } catch {
+    res.status(500).json({ error: 'Server error while resetting password' });
   }
 });
 
@@ -638,6 +900,7 @@ function coverImageForList(images: unknown): string[] {
 
 function mapProductDoc(p: any, { fullImages = false }: { fullImages?: boolean } = {}) {
   const images = Array.isArray(p.images) ? p.images : [];
+  const status = p.status === 'sold' ? 'sold' : 'available';
   return {
     id: String(p._id || p.id),
     name: p.name,
@@ -648,6 +911,8 @@ function mapProductDoc(p: any, { fullImages = false }: { fullImages?: boolean } 
     price: p.price,
     discount: p.discount || 0,
     stock: p.stock || 0,
+    status,
+    soldAt: p.soldAt || null,
     images: fullImages ? images : coverImageForList(images),
     specs: p.specs || {},
     createdAt: p.createdAt,
@@ -657,18 +922,23 @@ function mapProductDoc(p: any, { fullImages = false }: { fullImages?: boolean } 
 
 app.get('/api/products', async (req, res) => {
   try {
+    // Opportunistically remove sold items past the 1-day window
+    await purgeExpiredSoldProducts().catch(() => 0);
+
     const full = String(req.query.full || '') === '1';
 
-    if (!full && productListCache && Date.now() - productListCache.at < 60_000) {
-      res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
+    if (!full && productListCache && Date.now() - productListCache.at < 10_000) {
+      // Short TTL so SOLD status appears quickly on the storefront
+      res.set('Cache-Control', 'no-cache');
       return res.json(productListCache.payload);
     }
 
-    const products = await Product.find()
+    // Public + admin both include sold items (red SOLD on storefront until 1-day purge)
+    const products = await Product.find({})
       .select(
         full
-          ? 'name brand category description highlights price discount stock images specs createdAt updatedAt'
-          : 'name brand category price discount stock images specs createdAt',
+          ? 'name brand category description highlights price discount stock status soldAt images specs createdAt updatedAt'
+          : 'name brand category price discount stock status soldAt images specs createdAt',
       )
       .sort({ createdAt: -1 })
       .lean()
@@ -677,9 +947,12 @@ app.get('/api/products', async (req, res) => {
     const payload = products.map((p) => mapProductDoc(p, { fullImages: full }));
     if (!full) {
       productListCache = { at: Date.now(), payload };
+      res.set('Cache-Control', 'no-cache');
+    } else {
+      // Admin inventory — never serve a stale cached list after create/update
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
 
-    res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
     res.json(payload);
   } catch (err) {
     console.error('Error fetching products:', err);
@@ -697,19 +970,19 @@ app.get('/api/products/:id', async (req, res) => {
   }
 });
 
-app.post('/api/products', ...authenticateAdmin, async (req, res) => {
+app.post('/api/products', ...authenticateAdmin, requirePermission('inventory'), async (req, res) => {
   const { name, brand, category, description, highlights, price, discount, stock, images, specs } = req.body;
 
   try {
-    if (!String(name || '').trim() || !String(brand || '').trim() || !String(category || '').trim()) {
-      return res.status(400).json({ error: 'Name, brand, and category are required' });
+    if (!String(name || '').trim() || !String(category || '').trim()) {
+      return res.status(400).json({ error: 'Name and category are required' });
     }
     if (price === undefined || price === null || price === '' || Number.isNaN(parseFloat(price))) {
       return res.status(400).json({ error: 'A valid price is required' });
     }
     const newProd = await Product.create({
       name: String(name).trim(),
-      brand: String(brand).trim(),
+      brand: String(brand || '').trim(),
       category: String(category).trim(),
       description: String(description || '').trim(),
       highlights: Array.isArray(highlights)
@@ -718,6 +991,7 @@ app.post('/api/products', ...authenticateAdmin, async (req, res) => {
       price: parseFloat(price),
       discount: parseFloat(discount || 0),
       stock: parseInt(stock || 0, 10),
+      status: 'available',
       images: Array.isArray(images) ? images : [],
       specs: specs || {},
     });
@@ -728,7 +1002,62 @@ app.post('/api/products', ...authenticateAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/products/:id', ...authenticateAdmin, async (req, res) => {
+app.post('/api/products/bulk', ...authenticateAdmin, requirePermission('inventory'), async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? req.body.ids.map((id: unknown) => String(id || '').trim()).filter(Boolean)
+      : [];
+    const action = String(req.body?.action || '').trim().toLowerCase();
+
+    if (!ids.length) {
+      return res.status(400).json({ error: 'Select at least one product' });
+    }
+    if (!['delete', 'status'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid bulk action' });
+    }
+
+    if (action === 'delete') {
+      const result = await Product.deleteMany({ _id: { $in: ids } });
+      invalidateProductListCache();
+      return res.json({ success: true, deleted: result.deletedCount || 0 });
+    }
+
+    const status = String(req.body?.status || '').trim().toLowerCase();
+    if (status !== 'available' && status !== 'sold') {
+      return res.status(400).json({ error: 'Status must be available or sold' });
+    }
+
+    const result = await Product.updateMany(
+      { _id: { $in: ids } },
+      { $set: soldStatusUpdate(status as 'available' | 'sold') },
+    );
+    invalidateProductListCache();
+    res.json({ success: true, updated: result.modifiedCount || 0, status });
+  } catch (error) {
+    res.status(500).json({ error: mongoErrorMessage(error, 'Bulk operation failed') });
+  }
+});
+
+app.patch('/api/products/:id/status', ...authenticateAdmin, requirePermission('inventory'), async (req, res) => {
+  try {
+    const status = String(req.body?.status || '').trim().toLowerCase();
+    if (status !== 'available' && status !== 'sold') {
+      return res.status(400).json({ error: 'Status must be available or sold' });
+    }
+    const updated = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $set: soldStatusUpdate(status as 'available' | 'sold') },
+      { new: true },
+    ).lean();
+    if (!updated) return res.status(404).json({ error: 'Product not found' });
+    invalidateProductListCache();
+    res.json(mapProductDoc(updated, { fullImages: true }));
+  } catch (error) {
+    res.status(500).json({ error: mongoErrorMessage(error, 'Failed to update status') });
+  }
+});
+
+app.delete('/api/products/:id', ...authenticateAdmin, requirePermission('inventory'), async (req, res) => {
   try {
     const deleted = await Product.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Product not found' });
@@ -739,15 +1068,15 @@ app.delete('/api/products/:id', ...authenticateAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/products/:id', ...authenticateAdmin, async (req, res) => {
+app.put('/api/products/:id', ...authenticateAdmin, requirePermission('inventory'), async (req, res) => {
   try {
     const { name, brand, category, description, highlights, price, discount, stock, images, specs } = req.body;
-    if (!String(name || '').trim() || !String(brand || '').trim() || !String(category || '').trim()) {
-      return res.status(400).json({ error: 'Name, brand, and category are required' });
+    if (!String(name || '').trim() || !String(category || '').trim()) {
+      return res.status(400).json({ error: 'Name and category are required' });
     }
     const updated = await Product.findByIdAndUpdate(req.params.id, {
       name: String(name).trim(),
-      brand: String(brand).trim(),
+      brand: String(brand || '').trim(),
       category: String(category).trim(),
       description: String(description || '').trim(),
       highlights: Array.isArray(highlights)
@@ -961,12 +1290,8 @@ app.get('/api/users', ...authenticateAdmin, async (req, res) => {
   }
 });
 
-app.post('/api/users', ...authenticateAdmin, async (req: any, res) => {
+app.post('/api/users', ...authenticateAdmin, requirePermission('users'), async (req: any, res) => {
   try {
-    if (!userHasPermission(req.user, 'users')) {
-      return res.status(403).json({ error: 'You do not have permission to manage users.' });
-    }
-
     const name = String(req.body?.name || '').trim();
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
@@ -980,15 +1305,17 @@ app.post('/api/users', ...authenticateAdmin, async (req: any, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
+    if (role === 'admin' && !canAssignPermissions(req.user, permissions)) {
+      return res.status(403).json({
+        error: isParentSuperAdmin(req.user)
+          ? 'Invalid permissions selection.'
+          : 'Only the parent super admin can grant full access. Assign specific permissions you have.',
+      });
+    }
+
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ error: 'A user with this email already exists' });
-    }
-
-    if (role === 'admin' && permissions.length === 0 && Array.isArray(req.body?.permissions)) {
-      // Explicit empty selection is allowed only if creator has full access;
-      // empty permissions means full access — require at least one if they meant to restrict.
-      // Keep empty = full access when creating admins with "all" checked on the client.
     }
 
     const hash = await bcrypt.hash(password, 12);
@@ -998,6 +1325,7 @@ app.post('/api/users', ...authenticateAdmin, async (req: any, res) => {
       password: hash,
       role,
       permissions: role === 'admin' ? permissions : [],
+      isSuperAdmin: false,
     });
 
     res.status(201).json({
@@ -1006,6 +1334,7 @@ app.post('/api/users', ...authenticateAdmin, async (req: any, res) => {
       email: created.email,
       role: created.role,
       permissions: created.permissions || [],
+      isSuperAdmin: false,
       success: true,
     });
   } catch (error) {
@@ -1013,32 +1342,46 @@ app.post('/api/users', ...authenticateAdmin, async (req: any, res) => {
   }
 });
 
-app.put('/api/users/:id', ...authenticateAdmin, async (req: any, res) => {
+app.put('/api/users/:id', ...authenticateAdmin, requirePermission('users'), async (req: any, res) => {
   try {
-    if (!userHasPermission(req.user, 'users')) {
-      return res.status(403).json({ error: 'You do not have permission to manage users.' });
-    }
-
     const { name, email, role, permissions, password } = req.body;
     const target = await User.findById(req.params.id);
     if (!target) return res.status(404).json({ error: 'User not found' });
 
-    // Admin accounts keep the admin role — cannot be demoted
+    // Never demote admin accounts; never change parent super-admin flag via API
     const nextRole =
       target.role === 'admin' ? 'admin' : String(role || target.role).toLowerCase() === 'admin' ? 'admin' : 'user';
+
+    const nextPermissions =
+      nextRole === 'admin'
+        ? normalizePermissions(permissions ?? target.permissions)
+        : [];
+
+    // Parent super admin always keeps full access
+    const finalPermissions = isParentSuperAdmin(target) ? [] : nextPermissions;
+
+    if (nextRole === 'admin' && !isParentSuperAdmin(target) && !canAssignPermissions(req.user, finalPermissions)) {
+      return res.status(403).json({
+        error: 'You cannot assign those permissions. Only the parent super admin can grant full access.',
+      });
+    }
+
+    // Non-parent cannot edit the parent super admin's account (except parent themselves)
+    if (
+      isParentSuperAdmin(target) &&
+      !isParentSuperAdmin(req.user) &&
+      String(req.user.id) !== String(target._id)
+    ) {
+      return res.status(403).json({ error: 'Only the parent super admin can edit this account.' });
+    }
 
     const update: Record<string, unknown> = {
       name: String(name || target.name).trim(),
       email: String(email || target.email).trim().toLowerCase(),
       role: nextRole,
+      permissions: finalPermissions,
+      isSuperAdmin: Boolean(target.get('isSuperAdmin')),
     };
-
-    if (nextRole === 'admin') {
-      // Existing locked admins: allow permission updates only if not demoting
-      update.permissions = normalizePermissions(permissions ?? target.permissions);
-    } else {
-      update.permissions = [];
-    }
 
     if (password && String(password).length >= 6) {
       update.password = await bcrypt.hash(String(password), 12);
@@ -1054,20 +1397,26 @@ app.put('/api/users/:id', ...authenticateAdmin, async (req: any, res) => {
   }
 });
 
-app.delete('/api/users/:id', ...authenticateAdmin, async (req: any, res) => {
+app.delete('/api/users/:id', ...authenticateAdmin, requirePermission('users'), async (req: any, res) => {
   try {
-    if (!userHasPermission(req.user, 'users')) {
-      return res.status(403).json({ error: 'You do not have permission to manage users.' });
-    }
-
     const target = await User.findById(req.params.id);
     if (!target) return res.status(404).json({ error: 'User not found' });
-    if (target.role === 'admin') {
-      return res.status(400).json({ error: 'Admin users cannot be deleted.' });
-    }
+
     if (String(target._id) === String(req.user.id)) {
       return res.status(400).json({ error: 'You cannot delete your own account.' });
     }
+
+    if (isParentSuperAdmin(target)) {
+      return res.status(403).json({ error: 'The parent super admin cannot be deleted.' });
+    }
+
+    // Only the parent super admin can delete other admin accounts
+    if (target.role === 'admin' && !isParentSuperAdmin(req.user)) {
+      return res.status(403).json({
+        error: 'Only the parent super admin can delete other admin accounts.',
+      });
+    }
+
     await User.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {
@@ -1085,7 +1434,7 @@ app.get('/api/ads', async (req, res) => {
   }
 });
 
-app.post('/api/ads', ...authenticateAdmin, async (req, res) => {
+app.post('/api/ads', ...authenticateAdmin, requirePermission('promotions'), async (req, res) => {
   try {
     const title = String(req.body?.title || '').trim();
     const image = String(req.body?.image || '').trim();
@@ -1106,7 +1455,7 @@ app.post('/api/ads', ...authenticateAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/ads/:id', ...authenticateAdmin, async (req, res) => {
+app.put('/api/ads/:id', ...authenticateAdmin, requirePermission('promotions'), async (req, res) => {
   try {
     const update: Record<string, unknown> = { ...req.body };
     if (update.title !== undefined) update.title = String(update.title).trim();
@@ -1119,7 +1468,7 @@ app.put('/api/ads/:id', ...authenticateAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/ads/:id', ...authenticateAdmin, async (req, res) => {
+app.delete('/api/ads/:id', ...authenticateAdmin, requirePermission('promotions'), async (req, res) => {
   try {
     const deletedAd = await Advertisement.findByIdAndDelete(req.params.id);
     if (!deletedAd) return res.status(404).json({ error: 'Ad not found' });
@@ -1140,7 +1489,7 @@ app.get('/api/happy-customers', async (req, res) => {
   }
 });
 
-app.post('/api/happy-customers', ...authenticateAdmin, async (req: any, res) => {
+app.post('/api/happy-customers', ...authenticateAdmin, requirePermission('happy_customers'), async (req: any, res) => {
   try {
     const image = String(req.body?.image || '').trim();
     if (!image) return res.status(400).json({ error: 'Image is required' });
@@ -1163,7 +1512,7 @@ app.post('/api/happy-customers', ...authenticateAdmin, async (req: any, res) => 
   }
 });
 
-app.put('/api/happy-customers/:id', ...authenticateAdmin, async (req: any, res) => {
+app.put('/api/happy-customers/:id', ...authenticateAdmin, requirePermission('happy_customers'), async (req: any, res) => {
   try {
     const update: Record<string, unknown> = {};
     if (req.body?.name !== undefined) update.name = String(req.body.name).trim();
@@ -1190,7 +1539,7 @@ app.put('/api/happy-customers/:id', ...authenticateAdmin, async (req: any, res) 
   }
 });
 
-app.delete('/api/happy-customers/:id', ...authenticateAdmin, async (req: any, res) => {
+app.delete('/api/happy-customers/:id', ...authenticateAdmin, requirePermission('happy_customers'), async (req: any, res) => {
   try {
     const deleted = await HappyCustomer.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Happy customer not found' });
@@ -1210,7 +1559,7 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
-app.post('/api/categories', ...authenticateAdmin, async (req, res) => {
+app.post('/api/categories', ...authenticateAdmin, requirePermission('categories'), async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'Category name is required' });
@@ -1221,7 +1570,7 @@ app.post('/api/categories', ...authenticateAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/categories/:id', ...authenticateAdmin, async (req, res) => {
+app.delete('/api/categories/:id', ...authenticateAdmin, requirePermission('categories'), async (req, res) => {
   try {
     const deleted = await Category.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Category not found' });
@@ -1241,7 +1590,7 @@ app.get('/api/brands', async (req, res) => {
   }
 });
 
-app.post('/api/brands', ...authenticateAdmin, async (req, res) => {
+app.post('/api/brands', ...authenticateAdmin, requirePermission('brands'), async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
     const categories = Array.isArray(req.body?.categories)
@@ -1258,7 +1607,7 @@ app.post('/api/brands', ...authenticateAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/brands/:id', ...authenticateAdmin, async (req, res) => {
+app.put('/api/brands/:id', ...authenticateAdmin, requirePermission('brands'), async (req, res) => {
   try {
     const update: Record<string, unknown> = {};
     if (req.body?.name !== undefined) update.name = String(req.body.name).trim();
@@ -1275,7 +1624,7 @@ app.put('/api/brands/:id', ...authenticateAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/brands/:id', ...authenticateAdmin, async (req, res) => {
+app.delete('/api/brands/:id', ...authenticateAdmin, requirePermission('brands'), async (req, res) => {
   try {
     const deleted = await Brand.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Brand not found' });
@@ -1312,23 +1661,75 @@ function formatProductListMarkdown(products: any[], title: string) {
 
   const items = products
     .map((p: any, index: number) => {
-      const specs = p.specs && typeof p.specs === 'object'
-        ? Object.entries(p.specs)
-            .slice(0, 3)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(' • ')
-        : '';
+      const specs =
+        p.specs && typeof p.specs === 'object'
+          ? Object.entries(p.specs)
+              .slice(0, 3)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(' · ')
+          : '';
       const lines = [
         `${index + 1}. **${p.name}**`,
+        `   - Brand: ${p.brand}`,
         `   - Price: LKR ${p.price}${p.discount ? ` (${p.discount}% off)` : ''}`,
         `   - Stock: ${p.stock}`,
       ];
+      if (p.category) lines.push(`   - Category: ${p.category}`);
       if (specs) lines.push(`   - Specs: ${specs}`);
       return lines.join('\n');
     })
     .join('\n\n');
 
   return `${title}\n\n${items}`;
+}
+
+/** Compact inventory block for model grounding — never use pipe dumps. */
+function formatInventoryForModel(products: any[], heading: string) {
+  if (!products.length) return `${heading}\n(none)`;
+  return (
+    `${heading}\n` +
+    products
+      .map((p: any, i: number) => {
+        const specs =
+          p.specs && typeof p.specs === 'object' && Object.keys(p.specs).length
+            ? ` | Specs: ${JSON.stringify(p.specs)}`
+            : '';
+        return `${i + 1}. ${p.name} — Brand: ${p.brand}; Category: ${p.category || '—'}; Price: LKR ${p.price}; Discount: ${p.discount || 0}%; Stock: ${p.stock}${specs}`;
+      })
+      .join('\n')
+  );
+}
+
+/** Convert pipe-style product lines the model may echo into clean markdown. */
+function normalizePipeProductLines(text: string): string {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((raw) => {
+      const line = raw.trim();
+      if (!line.includes('|')) return raw;
+
+      const prefix = line.match(/^([-*•]|\d+\.)\s+/)?.[0] || '';
+      const body = prefix ? line.slice(prefix.length).trim() : line;
+      if (!body.includes('|')) return raw;
+
+      const parts = body.split('|').map((p) => p.trim()).filter(Boolean);
+      if (parts.length < 2) return raw;
+
+      const name = parts[0].replace(/\*\*/g, '').trim();
+      const fields: string[] = [];
+      for (let i = 1; i < parts.length; i++) {
+        const part = parts[i];
+        const labeled = part.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
+        if (!labeled) continue;
+        const key = labeled[1].toLowerCase();
+        if (key === 'id' || key === '_id') continue;
+        const label = labeled[1].charAt(0).toUpperCase() + labeled[1].slice(1).toLowerCase();
+        fields.push(`   - ${label}: ${labeled[2].trim()}`);
+      }
+      if (!fields.length) return raw;
+      return `**${name}**\n${fields.join('\n')}`;
+    })
+    .join('\n');
 }
 
 async function searchProductsForChat(query: string) {
@@ -1338,7 +1739,7 @@ async function searchProductsForChat(query: string) {
       action: null,
       toolContent: JSON.stringify({
         status: 'catalog',
-        message: `User asked for a general catalog list. Do NOT open a product page. List these in-stock items in structured markdown (numbered list, each field on its own line):\n${availableProducts.map((p: any) => `${p.name}|${p.brand}|LKR ${p.price}|stock ${p.stock}`).join('\n')}`,
+        message: `User asked for a general catalog list. Do NOT open a product page. Present these in-stock items as a numbered markdown list with Brand, Price, and Stock on separate bullet lines:\n${availableProducts.map((p: any) => `${p.name} — ${p.brand}, LKR ${p.price}, stock ${p.stock}`).join('\n')}`,
       }),
     };
   }
@@ -1618,12 +2019,14 @@ function tokenizeSearchQuery(text: string): string[] {
 
 /** Soften wall-of-text model replies into readable line breaks (no product hardcoding). */
 function structureChatReply(text: string): string {
-  return String(text || '')
-    .replace(/\r\n/g, '\n')
-    .replace(/\s+(\d+\.\s+)/g, '\n\n$1')
-    .replace(/\s+([-*•])\s+(Price|Specs|Stock|Brand|Discount)\s*:/gi, '\n   - $2:')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return normalizePipeProductLines(
+    String(text || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\s+(\d+\.\s+)/g, '\n\n$1')
+      .replace(/\s+([-*•])\s+(Price|Specs|Stock|Brand|Discount|Category)\s*:/gi, '\n   - $2:')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim(),
+  );
 }
 
 function scoreProductAgainstTokens(product: { name?: string; brand?: string; category?: string }, tokens: string[]) {
@@ -1762,13 +2165,8 @@ app.post('/api/chat', async (req, res) => {
       if (browseMode) {
         const available = await Product.find({ stock: { $gt: 0 } }).limit(12);
         inventoryContext =
-          'User asked for a GENERAL catalog / “what do you have” list. Do NOT open any product page.\nIn-stock products:\n' +
-          available
-            .map(
-              (p: any) =>
-                `- ${p.name} | brand: ${p.brand} | category: ${p.category} | price: LKR ${p.price} | discount: ${p.discount}% | stock: ${p.stock} | specs: ${JSON.stringify(p.specs || {})}`,
-            )
-            .join('\n');
+          'User asked for a GENERAL catalog / “what do you have” list. Do NOT open any product page.\n' +
+          formatInventoryForModel(available, 'In-stock products:');
       } else {
         const foundProducts = await findProductsForQuery(userText);
 
@@ -1778,28 +2176,16 @@ app.post('/api/chat', async (req, res) => {
           if (shouldNavigateToProduct(userText, top)) {
             actionPayload = { type: 'navigate', url: `/product/${top._id}` };
           }
-          inventoryContext = foundProducts
-            .map(
-              (p: any) =>
-                `- ${p.name} | brand: ${p.brand} | category: ${p.category} | price: LKR ${p.price} | discount: ${p.discount}% | stock: ${p.stock} | id: ${p._id} | specs: ${JSON.stringify(p.specs || {})}`,
-            )
-            .join('\n');
+          inventoryContext = formatInventoryForModel(foundProducts, 'Matching products:');
         } else {
           const available = await Product.find({ stock: { $gt: 0 } }).limit(6);
           inventoryContext =
-            'No exact match. Available products:\n' +
-            available
-              .map((p: any) => `- ${p.name} | brand: ${p.brand} | price: LKR ${p.price} | stock: ${p.stock} | id: ${p._id}`)
-              .join('\n');
+            'No exact match.\n' + formatInventoryForModel(available, 'Available products:');
         }
       }
     } else {
       const available = await Product.find({ stock: { $gt: 0 } }).limit(6);
-      inventoryContext =
-        'Current in-stock products:\n' +
-        available
-          .map((p: any) => `- ${p.name} | brand: ${p.brand} | price: LKR ${p.price} | stock: ${p.stock}`)
-          .join('\n');
+      inventoryContext = formatInventoryForModel(available, 'Current in-stock products:');
     }
 
     const systemPrompt = {
@@ -1820,12 +2206,13 @@ STRICT RULES:
 1) Only answer questions about Trust Mobile, phones, tablets, accessories, store policies, shopping, or Softora as the platform that powers this site.
 2) Use ONLY the LIVE INVENTORY CONTEXT below — never invent products, prices, or stock.
 3) Keep answers concise, friendly, and clear. Prices are in LKR.
-4) FORMATTING (required): Use markdown with real line breaks. For multiple products use a numbered list like:
+4) FORMATTING (required — never use pipe | separators):
+   For multiple products use a numbered list with blank lines between items:
    1. **Product Name**
+      - Brand: ...
       - Price: LKR ...
-      - Specs: ...
       - Stock: ...
-   Put a blank line between products. Never dump everything into one paragraph.
+   Never dump products into one paragraph. Never show database ids. Never write "brand: X | price: Y | stock: Z".
 5) NAVIGATION: ${
         actionPayload && matchedProductName
           ? `The user asked about a specific product ("${matchedProductName}"). Confirm availability and briefly say you are opening that product page now.`
@@ -1939,14 +2326,26 @@ ${inventoryContext || 'No products loaded.'}`,
     }
 
     // If the model returned no usable text but we have a product match, still respond + navigate
+    if (!responseMessage?.content && !matchedProductName) {
+      try {
+        const local = await localShoppingAssistant(messages);
+        return res.json({
+          ...local,
+          action: actionPayload || local.action,
+          provider,
+          model: activeModel,
+        });
+      } catch {
+        // fall through
+      }
+    }
+
     const normalized = normalizeChatMessage(
       responseMessage || {
         role: 'assistant',
         content: matchedProductName
-          ? `Yes — ${matchedProductName} is available in our store. I'm opening that product page for you now.`
-          : inventoryContext
-            ? `Here is what I found in our live inventory:\n${inventoryContext}`
-            : 'I could not generate a response right now. Please try again.',
+          ? `Yes — **${matchedProductName}** is available in our store. I'm opening that product page for you now.`
+          : 'I could not generate a response right now. Please try again.',
       },
     );
 

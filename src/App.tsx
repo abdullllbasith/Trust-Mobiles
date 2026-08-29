@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
-import TradeIn from "@/pages/TradeIn";
+import Services from "@/pages/Services";
 
 import Shop from "@/pages/Shop";
 import ProductDetails from "@/pages/ProductDetails";
@@ -57,7 +57,7 @@ export default function App() {
           <Route path="shop" element={<Shop />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
-          <Route path="trade-in" element={<TradeIn />} />
+          <Route path="services" element={<Services />} />
           <Route path="product/:id" element={<ProductDetails />} />
           <Route path="cart" element={<Cart />} />
           <Route path="wishlist" element={<Wishlist />} />

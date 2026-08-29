@@ -49,7 +49,7 @@ export default function AdminBrands({ brands, categories, loading, fetchData }: 
       setIsModalOpen(false);
       setName("");
       setSelectedCategories([]);
-      fetchData();
+      fetchData({ silent: true });
     } catch (err: any) {
       toast.error(err.message || "Error saving brand");
     } finally {
@@ -66,7 +66,7 @@ export default function AdminBrands({ brands, categories, loading, fetchData }: 
         fallbackError: "Failed to delete brand",
       });
       toast.success("Brand deleted");
-      fetchData();
+      fetchData({ silent: true });
     } catch (err: any) {
       toast.error(err.message || "Error deleting brand");
     }
@@ -91,7 +91,7 @@ export default function AdminBrands({ brands, categories, loading, fetchData }: 
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-hidden bg-white">
             <Table>
               <TableHeader>
                 <TableRow>
